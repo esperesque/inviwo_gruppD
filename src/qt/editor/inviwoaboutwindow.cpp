@@ -148,6 +148,12 @@ InviwoAboutWindow::InviwoAboutWindow(InviwoMainWindow* mainwindow)
     }
     {
         auto h = body.append("p");
+        h.append("h1", "Legendary Programmers of Grupp D:");
+        //h.append("br");
+        h.append("h2", "Simon Carlswärd, William Gabriel, David Helgesson, Levi Tuoremaa");
+    }
+    {
+        auto h = body.append("p");
         h.append("h3", "Core Team:");
         h.append("br");
         h.append("span",
