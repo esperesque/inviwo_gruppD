@@ -182,6 +182,7 @@
         <file>images/splashscreen.png</file>
         <file>images/uulm.svg</file>
         <file>images/vr.svg</file>
+        <file>images/gruppd.png</file>
 
         <file>stylesheets/inviwo.qss</file>
     </qresource>
