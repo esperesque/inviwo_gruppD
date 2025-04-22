@@ -162,7 +162,7 @@ InviwoAboutWindow::InviwoAboutWindow(InviwoMainWindow* mainwindow)
         h.append("span",
                  "Erik Sundén, Sathish Kottravel, Robin Skånberg, Jochen Jankowai, Tino Weinkauf, "
                  "Wiebke Köpp, Alexander Johansson, Andreas Valter, Johan Norén, Emanuel Winblad, "
-                 "Hans-Christian Helltegen, Viktor Axelsson");
+                 "Hans-Christian Helltegen, Viktor Axelsson, Simon Carlswärd");
     }
     {
         auto h = body.append("p");
