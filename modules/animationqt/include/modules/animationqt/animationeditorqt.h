@@ -32,7 +32,7 @@
 
 #include <modules/animation/animationcontrollerobserver.h>       // for AnimationControllerObserver
 #include <modules/animation/datastructures/animationobserver.h>  // for AnimationObserver
-
+#include <modules/animationqt/presentationviewpanel.h> // for presentationviewpanel
 #include <QGraphicsScene>  // for QGraphicsScene
 
 #include <memory>         // for unique_ptr
@@ -80,11 +80,11 @@ protected:
     void dragLeaveEvent(QGraphicsSceneDragDropEvent* event) override;
     void dragMoveEvent(QGraphicsSceneDragDropEvent* event) override;
     void dropEvent(QGraphicsSceneDragDropEvent* event) override;
-
+    PresentationViewPanel* presentationView_;
     AnimationController& controller_;
     TrackWidgetQtFactory& widgetFactory_;
     std::unordered_map<Track*, std::unique_ptr<TrackWidgetQt>> tracks_;
-
+   
     /// Indicator line for the drag&drop of properties.
     /// Shows a timeline indicating where the item will be dropped.
     /// Manipulated in the drag* and drop* functions.

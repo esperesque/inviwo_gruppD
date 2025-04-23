@@ -5,6 +5,7 @@ find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets)
 
 # Add header files
 set(HEADER_FILES
+    include/modules/animationqt/presentationviewpanel.h
     include/modules/animationqt/animationeditordockwidgetqt.h
     include/modules/animationqt/animationeditorqt.h
     include/modules/animationqt/animationlabelviewqt.h
@@ -36,6 +37,7 @@ ivw_group("Header Files" ${HEADER_FILES})
 
 # Add source files
 set(SOURCE_FILES
+    src/presentationviewpanel.cpp
     src/animationeditordockwidgetqt.cpp
     src/animationeditorqt.cpp
     src/animationlabelviewqt.cpp

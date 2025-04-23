@@ -48,7 +48,7 @@
 #include <modules/animationqt/widgets/keyframewidgetqt.h>          // for KeyframeWidgetQt
 #include <modules/animationqt/widgets/trackwidgetqt.h>             // for TrackWidgetQt
 #include <modules/qtwidgets/textlabeloverlay.h>                    // for TextLabelOverlay
-
+#include <modules/animationqt/presentationviewpanel.h>             // for Presentationviewpanel
 #include <chrono>   // for milliseconds
 #include <string>   // for basic_string, string
 #include <utility>  // for move, pair
@@ -70,7 +70,7 @@
 #include <fmt/core.h>                   // for format
 
 class QGraphicsSceneDragDropEvent;
-
+ 
 namespace inviwo {
 
 namespace animation {
@@ -82,6 +82,10 @@ AnimationEditorQt::AnimationEditorQt(
     , controller_(controller)
     , widgetFactory_{widgetFactory}
     , showText_{showText} {
+    presentationView_ = new PresentationViewPanel();
+   // presentationView_ = new PresentationViewPanel(&controller_);
+    presentationView_->setWindowTitle("Presentation View");
+    presentationView_->show();  // Display it as a standalone panel
     auto& animation = controller_.getAnimation();
     animation.addObserver(this);
     controller_.AnimationControllerObservable::addObserver(this);
