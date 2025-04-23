@@ -9,6 +9,7 @@
 PresentationViewPanel::PresentationViewPanel()
      {
     setupUI();
+    resize(1244, 700);
 }
 
 void PresentationViewPanel::setupUI() {
