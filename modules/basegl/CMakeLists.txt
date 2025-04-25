@@ -1,6 +1,5 @@
 # Inviwo Base OpenGL Module
 ivw_module(BaseGL)
-
 # Add header files
 set(HEADER_FILES
     include/modules/basegl/algorithm/dataminmaxgl.h

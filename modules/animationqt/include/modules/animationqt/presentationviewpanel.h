@@ -36,7 +36,10 @@
 #include <modules/animation/animationcontroller.h>
 #include <memory>  // for unique_ptr
 #include <string>  // for string
-
+#include <inviwo/core/datastructures/camera/perspectivecamera.h> // Inviwo Camera class
+#include <inviwo/core/properties/cameraproperty.h>
+#include <inviwo/core/properties/compositeproperty.h>
+#include <inviwo/core/properties/property.h>
 
 #include <QWidget>
 #include <QPushButton>
@@ -47,19 +50,20 @@ class QAction;
 class QComboBox;
 class QMainWindow;
 //class QWidget;
-class AnimationController;
+//class AnimationController;
 
 
 
-
-
+namespace inviwo {
+namespace animation {
 
 class PresentationViewPanel : public QWidget {
 public:
-   // PresentationViewPanel( AnimationController* controller, QWidget* parent = nullptr);
-
+    // PresentationViewPanel( AnimationController* controller, QWidget* parent = nullptr);
+    PresentationViewPanel(AnimationController* controller, QWidget* parent = nullptr);
     PresentationViewPanel();
-   
+    void setCamera(CameraProperty* camera);
+    CameraProperty* getCamera() const { return camera_; }
 
 private:
     void setupUI();
@@ -67,14 +71,22 @@ private:
     void playanimation();
     void pauseanimation();
     void nextanimation();
-     
-   AnimationController* controller_;
+    void toggleCameraRotation();  // Slot to toggle camera rotation
+    void rotateCamera();          // Function to handle camera rotation
+
+    bool rotatingCamera_;    // Whether the camera is rotating
+    QTimer* rotationTimer_;  // Timer to update the camera's rotation
+    // inviwo::PerspectiveCamera* camera_;   // Pointer to the PerspectiveCamera
+    CameraProperty* camera_;  // Pointer to hold the camera reference
+    AnimationController* controller_;
     QLabel* animationDisplay_;
     QPushButton* playButton_;
     QPushButton* pauseButton_;
     QPushButton* nextButton_;
+    QPushButton* rotateButton_;  // Button to toggle camera rotation
 };
-
+}  // namespace animation
+}
   // namespace animation
 
   // namespace inviwo

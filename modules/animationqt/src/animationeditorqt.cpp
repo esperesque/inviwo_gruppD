@@ -82,14 +82,14 @@ AnimationEditorQt::AnimationEditorQt(
     , controller_(controller)
     , widgetFactory_{widgetFactory}
     , showText_{showText} {
-    presentationView_ = new PresentationViewPanel();
-   // presentationView_ = new PresentationViewPanel(&controller_);
+    //presentationView_ = new PresentationViewPanel();
+    presentationView_ = new PresentationViewPanel(&controller_);
     presentationView_->setWindowTitle("Presentation View");
     presentationView_->show();  // Display it as a standalone panel
     auto& animation = controller_.getAnimation();
     animation.addObserver(this);
     controller_.AnimationControllerObservable::addObserver(this);
-
+    
     // Add Property tracks
     for (auto& track : animation) {
         onTrackAdded(&track);
