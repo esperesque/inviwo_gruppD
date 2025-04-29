@@ -200,6 +200,7 @@ AnimationQtModule::AnimationQtModule(InviwoApplication* app)
             dock->setSticky(true);
             dock->setWindowIcon(QIcon(":/animation/icons/monitor.svg"));
             dock->setWidget(new PresentationViewPanel());
+            dock->resize(1280, 540);
 
             presentationView_.reset(dock);  // spara pekaren
 
