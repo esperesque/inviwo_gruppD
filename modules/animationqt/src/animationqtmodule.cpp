@@ -9,6 +9,9 @@
 
 #include <modules/animationqt/animationqtmodule.h>
 
+#include <modules/animation/workspaceanimations.h>      // WorkspaceAnimations
+#include <modules/animation/mainanimation.h>           // MainAnimation
+
 #include <inviwo/core/common/inviwomodule.h>
 #include <inviwo/core/datastructures/camera/camera.h>
 #include <inviwo/core/properties/boolproperty.h>
@@ -190,24 +193,38 @@ AnimationQtModule::AnimationQtModule(InviwoApplication* app)
             return navigator_.get();
         });
 
-        /* ---------------------- Presentation View (NY) ------------------- */
+           /* ------------------------------------------------------------------------- */
+        /*   Presentation View – ersätt HELA blocket som skapar widgeten              */
+        /* ------------------------------------------------------------------------- */
         addWidgetLazy("Presentation View", Qt::BottomDockWidgetArea, [this, win]() {
-            /* Skapa själva dock-widgeten */
+            /* ► Hämta WorkspaceAnimations ◄ */
+            auto* animationModule = util::getModuleByType<AnimationModule>();
+            auto& workspaceAnims = animationModule->getWorkspaceAnimations();
+
+            /* ► AnimationController fås via MainAnimation ◄
+             *  MainAnimation ÄR en AnimationController (ärvd) – därför räcker ett &     */
+            animation::AnimationController* controller =
+                &workspaceAnims.getMainAnimation().getController();
+
+            /* ► Skapa dock-widget och panel ◄ */
             auto* dock = new InviwoDockWidget(utilqt::toQString(std::string("Presentation View")),
                                               win, "PresentationViewWidget");
 
             dock->setFloating(true);
             dock->setSticky(true);
             dock->setWindowIcon(QIcon(":/animation/icons/monitor.svg"));
-            dock->setWidget(new PresentationViewPanel());
+
+            auto* panel = new PresentationViewPanel(controller);
+            dock->setWidget(panel);
             dock->resize(1280, 540);
 
-            presentationView_.reset(dock);  // spara pekaren
-
+            presentationView_.reset(dock);
             QObject::connect(dock, &QObject::destroyed,
                              [this](QObject*) { presentationView_.release(); });
+
             return dock;
         });
+        ;
     }
 
     /* ------------------- registrera track-widgets m.m. -------------------- */

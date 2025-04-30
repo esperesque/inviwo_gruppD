@@ -1,141 +1,208 @@
 #include "modules/animationqt/presentationviewpanel.h"
-#include <modules/animationqt/factories/trackwidgetqtfactory.h>
-#include <modules/animation/animationcontroller.h>
-#include <inviwo/core/datastructures/camera/perspectivecamera.h>  // For PerspectiveCamera
-#include <QTimer>                                                 // For timer functionality
-#include <glm/gtc/constants.hpp>                                  // For glm::pi()
-#include <modules/animation/datastructures/propertytrack.h>
-#include <modules/animation/datastructures/keyframe.h>
+
+#include <QVBoxLayout>
+#include <QHBoxLayout>
+#include <QGridLayout>
+#include <QFrame>
+
 #include <modules/animation/datastructures/animation.h>
-#include <modules/animation/datastructures/track.h>
-#include <modules/animation/animationcontroller.h>
+#include <modules/animation/datastructures/animationtime.h>
+#include <glm/gtc/matrix_transform.hpp>
+
 namespace inviwo {
 namespace animation {
+
+/* ------------------------------------------------------------------------- */
+
 PresentationViewPanel::PresentationViewPanel(AnimationController* controller, QWidget* parent)
-    : QWidget(parent)
-    , controller_(controller)
-    , rotatingCamera_(false)
-    , rotationTimer_(nullptr)
-    , camera_(nullptr) {
+    : QWidget(parent), uiTimer_(this) {
+
+    setController(controller);
     setupUI();
-    resize(1244, 700);
+
+    connect(&uiTimer_, &QTimer::timeout, this, &PresentationViewPanel::updatedisplay);
+    uiTimer_.start(100);  // 10 fps
 }
 
-PresentationViewPanel::PresentationViewPanel()
-    : rotatingCamera_(false), rotationTimer_(nullptr), camera_(nullptr) {
-    setupUI();
-    resize(1244, 700);
-}
+/* ------------------------------------------------------------------------- */
+/*                                UI-layout                                  */
+/* ------------------------------------------------------------------------- */
 
 void PresentationViewPanel::setupUI() {
-    animationDisplay_ = new QLabel("Animation Display", this);
-    playButton_ = new QPushButton("Play", this);
-    pauseButton_ = new QPushButton("Pause", this);
-    nextButton_ = new QPushButton("Next", this);
-    rotateButton_ = new QPushButton("Toggle Camera Rotation", this);
 
-    QVBoxLayout* layout = new QVBoxLayout(this);
-    layout->addWidget(animationDisplay_);
-    layout->addWidget(playButton_);
-    layout->addWidget(pauseButton_);
-    layout->addWidget(nextButton_);
-    layout->addWidget(rotateButton_);
+    /* ========= ÖVERSTA TOOLBAR ========= */
+    auto* barLayout = new QHBoxLayout;
+    barLayout->setSpacing(4);
 
-    setLayout(layout);
+    auto makeTool = [&](const QString& txt) {
+        auto* b = new QToolButton;
+        b->setText(txt);  // placeholder – byt till ikon senare
+        connect(b, &QToolButton::clicked, this, &PresentationViewPanel::onToolbarClicked);
+        barLayout->addWidget(b);
+        return b;
+    };
+
+    tbBreak_ = makeTool("⏸");
+    tbAutoplay_ = makeTool("▶");
+    tbSpeed_ = makeTool("⚡");
+    tbTransition_ = makeTool("⇄");
+    tbExit_ = makeTool("⏏");
+
+    barLayout->addStretch(1);
+
+    /* ========= “Custom animations”-sektion ========= */
+    customAnimList_ = new QListWidget;
+    customAnimList_->setFixedHeight(60);
+    customAnimList_->addItem("PlaceHolder-Anim 1");
+    customAnimList_->addItem("PlaceHolder-Anim 2");
+
+    /* Separator-linje */
+    auto* line = new QFrame;
+    line->setFrameStyle(QFrame::HLine | QFrame::Sunken);
+
+    /* ========= Tre huvudkolumner ========= */
+    /* (1) Script-panel */
+    scriptEdit_ = new QTextEdit;
+    scriptEdit_->setPlaceholderText("Presentation notes ...");
+    auto* scriptBox = new QGroupBox("Script");
+    auto* scrLay = new QVBoxLayout(scriptBox);
+    scrLay->addWidget(scriptEdit_);
+
+    /* (2) Preset-panel */
+    auto* presetBox = new QGroupBox("Animation select");
+    auto* grid = new QGridLayout(presetBox);
+
+    btnRotate_ = new QPushButton("Rotate");
+    btnZoom_ = new QPushButton("Zoom In/Out");
+    btnShake_ = new QPushButton("Shake");
+
+    for (auto* b : {btnRotate_, btnZoom_, btnShake_}) {
+        connect(b, &QPushButton::clicked, this, &PresentationViewPanel::onPresetClicked);
+    }
+    grid->addWidget(btnRotate_, 0, 0);
+    grid->addWidget(btnZoom_, 0, 1);
+    grid->addWidget(btnShake_, 0, 2);
+
+    /* (3) View controls-panel */
+    auto* viewBox = new QGroupBox("View controls");
+    auto* viewLay = new QVBoxLayout(viewBox);
+
+    speedLabel_ = new QLabel("Speed:");
+    speedSlider_ = new QSlider(Qt::Horizontal);
+    speedSlider_->setRange(1, 100);
+    speedSlider_->setValue(50);
+
+    viewLay->addWidget(speedLabel_);
+    viewLay->addWidget(speedSlider_);
+    viewLay->addStretch(1);
+
+    /* layouta tre boxar horisontellt */
+    auto* threeCols = new QHBoxLayout;
+    threeCols->addWidget(scriptBox, 2);
+    threeCols->addWidget(presetBox, 3);
+    threeCols->addWidget(viewBox, 1);
+
+    /* ========= Bottenknappar ========= */
+    playButton_ = new QPushButton("Play");
+    pauseButton_ = new QPushButton("Pause");
+    nextButton_ = new QPushButton("Next");
 
     connect(playButton_, &QPushButton::clicked, this, &PresentationViewPanel::playanimation);
     connect(pauseButton_, &QPushButton::clicked, this, &PresentationViewPanel::pauseanimation);
     connect(nextButton_, &QPushButton::clicked, this, &PresentationViewPanel::nextanimation);
-    connect(rotateButton_, &QPushButton::clicked, this,
-            &PresentationViewPanel::toggleCameraRotation);
+
+    auto* bottom = new QHBoxLayout;
+    bottom->addWidget(playButton_);
+    bottom->addWidget(pauseButton_);
+    bottom->addWidget(nextButton_);
+
+    /* ========= Tid-etikett ========= */
+    timeLabel_ = new QLabel("Current Time: 0.00 s");
+
+    /* ========= Huvud-layout ========= */
+    auto* main = new QVBoxLayout(this);
+    main->addLayout(barLayout);
+    main->addWidget(customAnimList_);
+    main->addWidget(line);
+    main->addLayout(threeCols);
+    main->addWidget(timeLabel_);
+    main->addLayout(bottom);
 }
 
-void PresentationViewPanel::playanimation() {
-    if (controller_) controller_->play();
-    updatedisplay();
-}
-
-void PresentationViewPanel::pauseanimation() {
-    if (controller_) controller_->pause();
-    updatedisplay();
-}
-
-void PresentationViewPanel::nextanimation() {
-    // controller_.loadNext();
-    updatedisplay();
-}
+/* ------------------------------------------------------------------------- */
+/*                       Kontroller och display-timing                       */
+/* ------------------------------------------------------------------------- */
 
 void PresentationViewPanel::updatedisplay() {
     if (controller_) {
-        double currentTimeSec = controller_->getCurrentTime().count() / 1000.0;
-        animationDisplay_->setText(QString("Current Time: %1 s").arg(currentTimeSec, 0, 'f', 2));
-    } else {
-        animationDisplay_->setText("Controller not connected.");
+        const double t = controller_->getCurrentTime().count();
+        timeLabel_->setText(QString("Current Time: %1 s").arg(t, 0, 'f', 2));
     }
 }
 
-void PresentationViewPanel::setCamera(CameraProperty* camera) {
-    camera_ = camera;  // Set the camera reference
-}
+/* ------------------------------------------------------------------------- */
+/*                      Spela, pausa, nästa (enkla)                          */
+/* ------------------------------------------------------------------------- */
 
-void PresentationViewPanel::toggleCameraRotation() {
-    if (rotatingCamera_) {
-        // Stop rotation
-        if (rotationTimer_) {
-            rotationTimer_->stop();
-        }
-        rotatingCamera_ = false;
-    } else {
-        // Start rotation
-        rotatingCamera_ = true;
-        if (!rotationTimer_) {
-            rotationTimer_ = new QTimer(this);
-            connect(rotationTimer_, &QTimer::timeout, this, &PresentationViewPanel::rotateCamera);
-        }
-        rotationTimer_->start(
-            100);  // Adjust the speed of the rotation by changing the timeout (100ms)
+void PresentationViewPanel::playanimation() {
+    if (controller_) controller_->play();
+}
+void PresentationViewPanel::pauseanimation() {
+    if (controller_) controller_->pause();
+}
+void PresentationViewPanel::nextanimation() { /* TODO */ }
+
+/* ------------------------------------------------------------------------- */
+/*                            PRESET-HANTERING                               */
+/* ------------------------------------------------------------------------- */
+
+void PresentationViewPanel::onPresetClicked() {
+    if (sender() == btnRotate_) {
+        addRotatePreset();
+    } else if (sender() == btnZoom_) {
+        /* TODO */
+    } else if (sender() == btnShake_) {
+        /* TODO */
     }
 }
 
-void PresentationViewPanel::rotateCamera() {
-    if (!camera_) return;
+void PresentationViewPanel::addRotatePreset() {
+    if (!controller_ || !camera_) return;
 
-    // Get the current camera position and target from the CameraProperty
-    glm::vec3 lookFrom = camera_->getLookFrom();
-    glm::vec3 lookTo = camera_->getLookTo();
+    auto& anim = controller_->getAnimation();
+    Seconds t0 = controller_->getCurrentTime();
+    Seconds t1 = t0 + Seconds{2.0};  // 2 sekunders rotation
 
-    // Define the rotation angle
-    float angle = glm::radians(1.0f);  // 1 degree
-    glm::vec3 direction = glm::normalize(lookFrom - lookTo);
+    /* Nyckelruta A */
+    anim.addKeyframe(camera_, t0);
 
-    // Create a rotation matrix around the Y-axis (up axis)
-    glm::mat4 rotationMatrix = glm::rotate(glm::mat4(1.0f), angle, glm::vec3(0.0f, 1.0f, 0.0f));
-    glm::vec4 newLookFrom = rotationMatrix * glm::vec4(lookFrom, 1.0f);
+    /* Roterad kamera och nyckelruta B */
+    rotateCameraBy(glm::radians(90.f));
+    anim.addKeyframe(camera_, t1);
 
-    // Clone the current camera
-    CameraProperty* cameraClone = camera_->clone();  // Clone the CameraProperty
-
-    // Apply the new position after the rotation to the cloned camera
-    cameraClone->setLookFrom(glm::vec3(newLookFrom));  // Update the look-from after rotation
-
-    // Set the cloned camera (updated with new position) back to camera_
-    camera_->set(cameraClone);  // Pass the CameraProperty pointer to set()
-
-    // Optionally, add a keyframe if the controller exists
-    if (controller_) {
-        auto& animation = controller_->getAnimation();
-        auto t = animation.getLastTime() + animation::Seconds(0.1);
-        animation.addKeyframe(camera_, t);  // Add keyframe to the animation
-    }
-    
-    // Update the display after the camera change
-    updatedisplay();
+    controller_->play();
 }
 
+void PresentationViewPanel::rotateCameraBy(float angleRad) {
+    auto from = camera_->getLookFrom();
+    auto to = camera_->getLookTo();
 
+    glm::mat4 rot = glm::rotate(glm::mat4(1.0f), angleRad, glm::vec3(0.f, 1.f, 0.f));
+    glm::vec4 newFrom = rot * glm::vec4(from, 1.0f);
 
+    camera_->setLookFrom(glm::vec3(newFrom));
+}
 
+/* ------------------------------------------------------------------------- */
+/*                       Toolbar (ej implementerad ännu)                     */
+/* ------------------------------------------------------------------------- */
 
+void PresentationViewPanel::onToolbarClicked() { /* TODO i senare steg */ }
+
+/* ------------------------------------------------------------------------- */
+
+void PresentationViewPanel::setController(AnimationController* ctrl) { controller_ = ctrl; }
+void PresentationViewPanel::setCamera(CameraProperty* camera) { camera_ = camera; }
 
 }  // namespace animation
 }  // namespace inviwo
