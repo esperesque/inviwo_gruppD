@@ -50,6 +50,7 @@ private:
 
     /* toolbar */
     void onToolbarClicked();
+    void toggleFullscreen();
 
     /* ------------------------------------------------------------------ */
 
@@ -59,7 +60,8 @@ private:
     QTimer uiTimer_;
 
     /* toolbar */
-    QToolButton *tbBreak_, *tbAutoplay_, *tbSpeed_, *tbTransition_, *tbExit_;
+    QToolButton *tbBreak_, *tbAutoplay_, *tbSpeed_, *tbTransition_, *tbExit_,
+        *tbFullscreen_;
 
     /* listan ovan */
     QListWidget* customAnimList_;

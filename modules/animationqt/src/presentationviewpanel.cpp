@@ -4,6 +4,8 @@
 #include <QHBoxLayout>
 #include <QGridLayout>
 #include <QFrame>
+#include <QToolButton>
+#include <QWidget>
 
 #include <modules/animation/datastructures/animation.h>
 #include <modules/animation/datastructures/animationtime.h>
@@ -19,6 +21,8 @@ PresentationViewPanel::PresentationViewPanel(AnimationController* controller, QW
 
     setController(controller);
     setupUI();
+
+    resize(1280, 720);
 
     connect(&uiTimer_, &QTimer::timeout, this, &PresentationViewPanel::updatedisplay);
     uiTimer_.start(100);  // 10 fps
@@ -47,6 +51,8 @@ void PresentationViewPanel::setupUI() {
     tbSpeed_ = makeTool("⚡");
     tbTransition_ = makeTool("⇄");
     tbExit_ = makeTool("⏏");
+    tbFullscreen_ = makeTool("⛶");  // Ny knapp för helskärm
+    connect(tbFullscreen_, &QToolButton::clicked, this, &PresentationViewPanel::toggleFullscreen);
 
     barLayout->addStretch(1);
 
@@ -194,12 +200,24 @@ void PresentationViewPanel::rotateCameraBy(float angleRad) {
 }
 
 /* ------------------------------------------------------------------------- */
-/*                       Toolbar (ej implementerad ännu)                     */
+/*                            FULLSKÄRM/VYNÄT                               */
+/* ------------------------------------------------------------------------- */
+
+void PresentationViewPanel::toggleFullscreen() {
+    QWidget* w = window();
+    if (w->isFullScreen()) {
+        w->showNormal();
+        //återställ storlek
+        w->resize(1280, 720);
+    } else {
+        w->showFullScreen();
+    }
+}
+
+
 /* ------------------------------------------------------------------------- */
 
 void PresentationViewPanel::onToolbarClicked() { /* TODO i senare steg */ }
-
-/* ------------------------------------------------------------------------- */
 
 void PresentationViewPanel::setController(AnimationController* ctrl) { controller_ = ctrl; }
 void PresentationViewPanel::setCamera(CameraProperty* camera) { camera_ = camera; }
