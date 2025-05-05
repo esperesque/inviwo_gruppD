@@ -9,6 +9,8 @@
 
 #include <string>
 
+#include <string>
+
 #include <modules/animation/datastructures/animation.h>
 #include <modules/animation/datastructures/animationtime.h>
 #include <glm/gtc/matrix_transform.hpp>
