@@ -14,7 +14,9 @@ namespace animation {
 
 /* ------------------------------------------------------------------------- */
 
-PresentationViewPanel::PresentationViewPanel(AnimationController* controller, QWidget* parent)
+
+PresentationViewPanel::PresentationViewPanel(
+    WorkspaceAnimations& animations, AnimationController* controller, QWidget* parent)
     : QWidget(parent), uiTimer_(this) {
 
     setController(controller);
@@ -55,6 +57,12 @@ void PresentationViewPanel::setupUI() {
     customAnimList_->setFixedHeight(60);
     customAnimList_->addItem("PlaceHolder-Anim 1");
     customAnimList_->addItem("PlaceHolder-Anim 2");
+
+    // Create an animation button for each defined animation
+
+
+
+    // Connect buttons to animation changes
 
     /* Separator-linje */
     auto* line = new QFrame;

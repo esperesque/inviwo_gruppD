@@ -25,9 +25,12 @@
 namespace inviwo {
 namespace animation {
 
+    class WorkspaceAnimations;
+
 class PresentationViewPanel : public QWidget {
 public:
-    explicit PresentationViewPanel(AnimationController* controller = nullptr,
+    explicit PresentationViewPanel(
+        WorkspaceAnimations& animations, AnimationController* controller = nullptr,
                                    QWidget* parent = nullptr);
 
     void setController(AnimationController* controller);
