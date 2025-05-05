@@ -214,7 +214,8 @@ AnimationQtModule::AnimationQtModule(InviwoApplication* app)
             dock->setSticky(true);
             dock->setWindowIcon(QIcon(":/animation/icons/monitor.svg"));
 
-            auto* panel = new PresentationViewPanel(controller);
+            // Include a reference to WorkspaceAnims when creating the presentation view panel
+            auto* panel = new PresentationViewPanel(workspaceAnims, controller);
             dock->setWidget(panel);
             dock->resize(1280, 540);
 

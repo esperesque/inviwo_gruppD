@@ -7,6 +7,8 @@
 #include <QToolButton>
 #include <QWidget>
 
+#include <string>
+
 #include <modules/animation/datastructures/animation.h>
 #include <modules/animation/datastructures/animationtime.h>
 #include <glm/gtc/matrix_transform.hpp>
@@ -16,8 +18,10 @@ namespace animation {
 
 /* ------------------------------------------------------------------------- */
 
-PresentationViewPanel::PresentationViewPanel(AnimationController* controller, QWidget* parent)
-    : QWidget(parent), uiTimer_(this) {
+
+PresentationViewPanel::PresentationViewPanel(
+    WorkspaceAnimations& animations, AnimationController* controller, QWidget* parent)
+    : QWidget(parent), uiTimer_(this), workspaceAnimations(animations) {
 
     setController(controller);
     setupUI();
@@ -59,8 +63,18 @@ void PresentationViewPanel::setupUI() {
     /* ========= “Custom animations”-sektion ========= */
     customAnimList_ = new QListWidget;
     customAnimList_->setFixedHeight(60);
-    customAnimList_->addItem("PlaceHolder-Anim 1");
-    customAnimList_->addItem("PlaceHolder-Anim 2");
+    //customAnimList_->addItem("PlaceHolder-Anim 1");
+    //customAnimList_->addItem("PlaceHolder-Anim 2");
+
+    // Create an animation button for each defined animation
+
+    for (int i = 0; i < workspaceAnimations.size(); i++) {
+        std::string anim_name = workspaceAnimations.get(i).getName();
+        customAnimList_->addItem(QString::fromStdString(anim_name));
+    }
+    
+
+    // Connect buttons to animation changes
 
     /* Separator-linje */
     auto* line = new QFrame;

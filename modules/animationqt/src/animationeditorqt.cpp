@@ -83,9 +83,12 @@ AnimationEditorQt::AnimationEditorQt(
     , widgetFactory_{widgetFactory}
     , showText_{showText} {
     //presentationView_ = new PresentationViewPanel();
+
+    // Uncomment this to bring up a PresentationViewPanel when the AnimationEditor is opened
+    /*
     presentationView_ = new PresentationViewPanel(&controller_);
     presentationView_->setWindowTitle("Presentation View");
-    presentationView_->show();  // Display it as a standalone panel
+    presentationView_->show();  // Display it as a standalone panel*/
     auto& animation = controller_.getAnimation();
     animation.addObserver(this);
     controller_.AnimationControllerObservable::addObserver(this);

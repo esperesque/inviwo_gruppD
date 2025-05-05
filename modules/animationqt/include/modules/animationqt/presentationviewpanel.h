@@ -8,6 +8,7 @@
 
 #include <modules/animationqt/animationqtmoduledefine.h>
 #include <modules/animation/animationcontroller.h>
+#include <modules/animation/workspaceanimations.h>
 
 #include <inviwo/core/datastructures/camera/perspectivecamera.h>
 #include <inviwo/core/properties/cameraproperty.h>
@@ -25,9 +26,12 @@
 namespace inviwo {
 namespace animation {
 
+    //class WorkspaceAnimations;
+
 class PresentationViewPanel : public QWidget {
 public:
-    explicit PresentationViewPanel(AnimationController* controller = nullptr,
+    explicit PresentationViewPanel(
+        WorkspaceAnimations& animations, AnimationController* controller = nullptr,
                                    QWidget* parent = nullptr);
 
     void setController(AnimationController* controller);
@@ -55,6 +59,7 @@ private:
     /* ------------------------------------------------------------------ */
 
     /* kontroller och timing */
+    WorkspaceAnimations& workspaceAnimations;
     AnimationController* controller_{nullptr};
     CameraProperty* camera_{nullptr};
     QTimer uiTimer_;
