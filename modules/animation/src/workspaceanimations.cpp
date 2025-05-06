@@ -175,26 +175,29 @@ Animation& WorkspaceAnimations::insert(const_iterator position, std::string_view
 void WorkspaceAnimations::erase(size_t index) { erase(begin() + index); }
 
 void WorkspaceAnimations::erase(const_iterator position) {
-    // First ensure that the MainAnimation is valid
+    // Om bara en animation finns: töm den men behåll platsen
     if (size() == 1) {
         animations_[0]->clear();
         animations_[0]->setName("Animation 1");
         onChanged_.invoke(0, *animations_[0]);
         return;
     }
-    // Upgrade iter
-    auto pos = animations_.begin() + std::distance(animations_.cbegin(), position.base());
 
-    if (size() > 1 && find(&mainAnimation_.get()).base() == pos) {
-        // The selected one will be removed, select next after
-        auto newMain = pos == animations_.begin() ? pos + 1 : pos - 1;
+    auto pos = animations_.begin() + std::distance(animations_.cbegin(), position.base());
+    const auto erasedIndex = std::distance(animations_.begin(), pos);  //  <-- spara index
+
+    // Håll MainAnimation vid liv
+    if (find(&mainAnimation_.get()).base() == pos) {
+        auto newMain = (pos == animations_.begin() ? pos + 1 : pos - 1);
         mainAnimation_.set(**newMain);
     }
+
     auto anim = std::move(*pos);
     animations_.erase(pos);
 
-    onChanged_.invoke(std::distance(animations_.begin(), pos), *anim);
+    onChanged_.invoke(erasedIndex, *anim);  //  <-- använd sparat index
 }
+
 
 void WorkspaceAnimations::clear() {
     auto nAnimations = static_cast<int>(size()) - 1;
