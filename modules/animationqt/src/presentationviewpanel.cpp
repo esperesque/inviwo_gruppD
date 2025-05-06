@@ -165,19 +165,17 @@ void PresentationViewPanel::updatedisplay() {
 
 void PresentationViewPanel::updateAnimationList() {
     //customAnims_->; // Todo: Clear or don't add existing anims
+    QLayoutItem* child;
+    while ((child = customAnims_->takeAt(0)) != 0) {
+        delete child;
+    }
+
     for (int i = 0; i < workspaceAnimations.size(); i++) {
         std::string anim_name = workspaceAnimations.get(i).getName();
         auto* butt = new QPushButton(QString::fromStdString(anim_name));
         butt->setFixedHeight(50);
-        //connect(butt, &QPushButton::clicked, this, &PresentationViewPanel::playanimation);
         connect(butt, &QPushButton::clicked, [this, i] { this->playAnimationById(i); });
-        // Not sure how to send the animation ID. I think we may have to extend QPushButton with a new signal that contains
-        // an id
         customAnims_->addWidget(butt);
-        //customAnimList_->addItem(QString::fromStdString(anim_name));
-        //customAnimList_->addItem(new QPushButton("Play"));
-
-        // Connect the button
     }
 }
 
