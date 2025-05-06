@@ -72,15 +72,12 @@ void PresentationViewPanel::setupUI() {
     /* ========= “Custom animations”-sektion ========= */
     customAnimList_ = new QListWidget;
     customAnimList_->setFixedHeight(60);
-    //customAnimList_->addItem("PlaceHolder-Anim 1");
-    //customAnimList_->addItem("PlaceHolder-Anim 2");
+
+    customAnims_ = new QHBoxLayout;
+    customAnims_->setSpacing(4);
 
     // Create an animation button for each defined animation
     updateAnimationList();
-
-    // Connect buttons to animation changes
-
-    // TODO
 
     /* Separator-linje */
     auto* line = new QFrame;
@@ -148,7 +145,7 @@ void PresentationViewPanel::setupUI() {
     /* ========= Huvud-layout ========= */
     auto* main = new QVBoxLayout(this);
     main->addLayout(barLayout);
-    main->addWidget(customAnimList_);
+    main->addLayout(customAnims_);
     main->addWidget(line);
     main->addLayout(threeCols);
     main->addWidget(timeLabel_);
@@ -167,16 +164,30 @@ void PresentationViewPanel::updatedisplay() {
 }
 
 void PresentationViewPanel::updateAnimationList() {
-    customAnimList_->clear();
+    //customAnims_->; // Todo: Clear or don't add existing anims
     for (int i = 0; i < workspaceAnimations.size(); i++) {
         std::string anim_name = workspaceAnimations.get(i).getName();
-        customAnimList_->addItem(QString::fromStdString(anim_name));
+        auto* butt = new QPushButton(QString::fromStdString(anim_name));
+        butt->setFixedHeight(50);
+        connect(butt, &QPushButton::clicked, this, &PresentationViewPanel::playanimation);
+        // Not sure how to send the animation ID. I think we may have to extend QPushButton with a new signal that contains
+        // an id
+        customAnims_->addWidget(butt);
+        //customAnimList_->addItem(QString::fromStdString(anim_name));
+        //customAnimList_->addItem(new QPushButton("Play"));
+
+        // Connect the button
     }
 }
 
 /* ------------------------------------------------------------------------- */
 /*                      Spela, pausa, nästa (enkla)                          */
 /* ------------------------------------------------------------------------- */
+
+void PresentationViewPanel::playAnimationById(int anim_id) {
+    std::cout << "called \n";
+    std::cout << anim_id;
+}
 
 void PresentationViewPanel::playanimation() {
     if (controller_) controller_->play();

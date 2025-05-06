@@ -13,6 +13,7 @@
 #include <inviwo/core/datastructures/camera/perspectivecamera.h>
 #include <inviwo/core/properties/cameraproperty.h>
 
+#include <QHBoxLayout>
 #include <QWidget>
 #include <QToolButton>
 #include <QListWidget>
@@ -43,6 +44,7 @@ private:
     void updatedisplay();
 
     /* anim-knappar */
+    void playAnimationById(int anim_id);
     void playanimation();
     void pauseanimation();
     void nextanimation();
@@ -75,6 +77,7 @@ private:
 
     /* listan ovan */
     QListWidget* customAnimList_;
+    QHBoxLayout* customAnims_;
 
     /* script-panel */
     QTextEdit* scriptEdit_;
