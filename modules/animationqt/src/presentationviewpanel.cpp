@@ -31,6 +31,13 @@ PresentationViewPanel::PresentationViewPanel(
     resize(1280, 720);
 
     connect(&uiTimer_, &QTimer::timeout, this, &PresentationViewPanel::updatedisplay);
+
+    // Connects animations.onChanged to a function so that we can update the animation list
+    // Not totally sure how this works, see workspaceanimationsmodel.cpp for better examples
+    onChangedHandle_ = animations.onChanged_.add([this](size_t index, Animation& anim) {
+        updateAnimationList();
+    });
+
     uiTimer_.start(100);  // 10 fps
 }
 
@@ -69,14 +76,11 @@ void PresentationViewPanel::setupUI() {
     //customAnimList_->addItem("PlaceHolder-Anim 2");
 
     // Create an animation button for each defined animation
-
-    for (int i = 0; i < workspaceAnimations.size(); i++) {
-        std::string anim_name = workspaceAnimations.get(i).getName();
-        customAnimList_->addItem(QString::fromStdString(anim_name));
-    }
-    
+    updateAnimationList();
 
     // Connect buttons to animation changes
+
+    // TODO
 
     /* Separator-linje */
     auto* line = new QFrame;
@@ -159,6 +163,14 @@ void PresentationViewPanel::updatedisplay() {
     if (controller_) {
         const double t = controller_->getCurrentTime().count();
         timeLabel_->setText(QString("Current Time: %1 s").arg(t, 0, 'f', 2));
+    }
+}
+
+void PresentationViewPanel::updateAnimationList() {
+    customAnimList_->clear();
+    for (int i = 0; i < workspaceAnimations.size(); i++) {
+        std::string anim_name = workspaceAnimations.get(i).getName();
+        customAnimList_->addItem(QString::fromStdString(anim_name));
     }
 }
 

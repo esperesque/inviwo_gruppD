@@ -56,10 +56,15 @@ private:
     void onToolbarClicked();
     void toggleFullscreen();
 
+    // Update functions
+    void updateAnimationList(); // Update the animations listed
+
     /* ------------------------------------------------------------------ */
 
     /* kontroller och timing */
+    Dispatcher<void()> onAnimationChangeDispatcher_;
     WorkspaceAnimations& workspaceAnimations;
+    WorkspaceAnimations::OnChangedDispatcher::Handle onChangedHandle_; // Use this to detect changes in WorkspaceAnimations
     AnimationController* controller_{nullptr};
     CameraProperty* camera_{nullptr};
     QTimer uiTimer_;
