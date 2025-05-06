@@ -1,6 +1,8 @@
 /*********************************************************************************
+ *
  * Inviwo - Interactive Visualization Workshop
  * Copyright (c) 2016‑2025 Inviwo Foundation
+ *
  *********************************************************************************/
 #pragma once
 
@@ -22,10 +24,16 @@
 #include <QTimer>
 #include <QShortcut>
 #include <QVBoxLayout>
+#include <vector>
 
 namespace inviwo {
 namespace animation {
 
+class TimelineItem;
+
+/* ------------------------------------------------------------------------- */
+/*                     PresentationViewPanel – huvudklass                    */
+/* ------------------------------------------------------------------------- */
 class PresentationViewPanel : public QWidget {
 public:
     explicit PresentationViewPanel(WorkspaceAnimations& animations,
@@ -36,27 +44,25 @@ public:
     void setCamera(CameraProperty* camera);
 
 private:
-    /* ---------- bygg UI + timers ---------- */
+    /* ---------- bygg UI ---------- */
     void setupUI();
     void updatedisplay();
-    void updateAnimationLibrary();
-    void updateTimelineHighlight();
 
-    /* ---------- timeline‑hjälp ---------- */
-    void clearTimeline();
+    /* ---------- bibliotek / tidslinje ---------- */
+    void updateAnimationLibrary();        // fyll blåa knappar
+    void updateTimelineHighlight();       // markera aktivt block
+    void onLibraryButtonClicked(int id);  // lägg till i TL
+    void onTimelineDoubleClicked(QListWidgetItem* item);
 
-    /* ---------- animation‑kontroller ---------- */
-    void playAnimationById(int animId);
-    void jumpRelative(int delta);
+    /* ---------- spel‑/nav‑funktioner ---------- */
+    void playAnimationById(int id);
+    void jumpRelative(int delta);  // –1 / +1
+    void restartPresentation();    // **NY** – återställ allt
     void playanimation();
     void pauseanimation();
     void nextanimation();
 
-    /* ---------- bibliotek & tidslinje ---------- */
-    void onLibraryButtonClicked(int animId);
-    void onTimelineDoubleClicked(QListWidgetItem* item);
-
-    /* ---------- preset‑exempel ---------- */
+    /* ---------- presets ---------- */
     void onPresetClicked();
     void addRotatePreset();
     void rotateCameraBy(float angleRad);
@@ -65,31 +71,32 @@ private:
     void onToolbarClicked();
     void toggleFullscreen();
 
-    /* ---------- data ---------- */
+    /* ------------------------------------------------------------------ */
     WorkspaceAnimations& workspaceAnimations_;
     WorkspaceAnimations::OnChangedDispatcher::Handle onChangedHandle_;
     AnimationController* controller_{nullptr};
     CameraProperty* camera_{nullptr};
+
     QTimer uiTimer_;
 
     /* ---------- UI‑element ---------- */
     // toolbar
     QToolButton *tbBreak_, *tbAutoplay_, *tbSpeed_, *tbTransition_, *tbExit_, *tbFullscreen_,
-        *tbResetTL_;
+        *tbRestart_;
     // bibliotek
     QHBoxLayout* libraryLayout_;
     // tidslinje
     QListWidget* timeline_;
-    // script‑panel
+    // script
     QTextEdit* scriptEdit_;
-    // preset‑knappar
+    // presets
     QPushButton *btnRotate_, *btnZoom_, *btnShake_;
-    // view controls
+    // view‑controls
     QSlider* speedSlider_;
     QLabel* speedLabel_;
     // play/pause
     QPushButton *playButton_, *pauseButton_, *nextButton_;
-    // tids‑etikett
+    // tid
     QLabel* timeLabel_;
 
     /* ---------- genvägar ---------- */
