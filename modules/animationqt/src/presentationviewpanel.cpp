@@ -93,10 +93,12 @@ void PresentationViewPanel::setupUI() {
 
     auto* viewBox = new QGroupBox("View controls");
     auto* vLay = new QVBoxLayout(viewBox);
-    speedLabel_ = new QLabel("Speed:");
+    speedLabel_ = new QLabel("Speed: 50%");
     speedSlider_ = new QSlider(Qt::Horizontal);
     speedSlider_->setRange(1, 100);
     speedSlider_->setValue(50);
+    connect(speedSlider_, &QSlider::valueChanged, this,
+            [this](int value) { speedLabel_->setText(QString("Speed: %1%").arg(value)); });
     vLay->addWidget(speedLabel_);
     vLay->addWidget(speedSlider_);
     vLay->addStretch(1);
