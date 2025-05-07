@@ -24,12 +24,9 @@
 #include <QTimer>
 #include <QShortcut>
 #include <QVBoxLayout>
-#include <vector>
 
 namespace inviwo {
 namespace animation {
-
-class TimelineItem;
 
 /* ------------------------------------------------------------------------- */
 /*                     PresentationViewPanel – huvudklass                    */
@@ -51,13 +48,14 @@ private:
     /* ---------- bibliotek / tidslinje ---------- */
     void updateAnimationLibrary();        // fyll blåa knappar
     void updateTimelineHighlight();       // markera aktivt block
+    void ensureStartItem();               // ser till att START finns
     void onLibraryButtonClicked(int id);  // lägg till i TL
     void onTimelineDoubleClicked(QListWidgetItem* item);
 
     /* ---------- spel‑/nav‑funktioner ---------- */
     void playAnimationById(int id);
     void jumpRelative(int delta);  // –1 / +1
-    void restartPresentation();    // **NY** – återställ allt
+    void restartPresentation();    // ↺ återställ allt
     void playanimation();
     void pauseanimation();
     void nextanimation();
@@ -72,6 +70,8 @@ private:
     void toggleFullscreen();
 
     /* ------------------------------------------------------------------ */
+    static constexpr int StartId{-1};  // ID för ”START”
+
     WorkspaceAnimations& workspaceAnimations_;
     WorkspaceAnimations::OnChangedDispatcher::Handle onChangedHandle_;
     AnimationController* controller_{nullptr};

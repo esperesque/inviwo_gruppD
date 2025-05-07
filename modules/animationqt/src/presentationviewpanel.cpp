@@ -49,7 +49,7 @@ void PresentationViewPanel::setupUI() {
     tbTransition_ = makeTool("⇄");
     tbExit_ = makeTool("⏏");
     tbFullscreen_ = makeTool("⛶");
-    tbRestart_ = makeTool("↺");  // **NY** återställ‑knapp
+    tbRestart_ = makeTool("↺");  // ↺ reset‑knapp
     connect(tbFullscreen_, &QToolButton::clicked, this, &PresentationViewPanel::toggleFullscreen);
     connect(tbRestart_, &QToolButton::clicked, this, &PresentationViewPanel::restartPresentation);
     barLayout->addStretch(1);
@@ -71,7 +71,9 @@ void PresentationViewPanel::setupUI() {
     connect(timeline_, &QListWidget::itemDoubleClicked, this,
             &PresentationViewPanel::onTimelineDoubleClicked);
 
-    /* ---------- Script/preset/view‑boxar (oförändrade) ---------- */
+    ensureStartItem();  // lägg in START först
+
+    /* ---------- Script/preset/view‑boxar ---------- */
     scriptEdit_ = new QTextEdit;
     scriptEdit_->setPlaceholderText("Presentation notes …");
     auto* scriptBox = new QGroupBox("Script");
@@ -140,6 +142,17 @@ void PresentationViewPanel::setupUI() {
 /* ------------------------------------------------------------------------- */
 /*                       Bibliotek & tidslinje‑hjälp                         */
 /* ------------------------------------------------------------------------- */
+void PresentationViewPanel::ensureStartItem() {
+    if (timeline_->count() == 0 || timeline_->item(0)->data(Qt::UserRole).toInt() != StartId) {
+
+        auto* start = new QListWidgetItem("START", timeline_);
+        start->setData(Qt::UserRole, StartId);
+        start->setSizeHint(QSize(100, 50));
+        timeline_->insertItem(0, start);
+        timeline_->setCurrentRow(0);
+    }
+}
+
 void PresentationViewPanel::updateAnimationLibrary() {
     QLayoutItem* child;
     while ((child = libraryLayout_->takeAt(0))) delete child;
@@ -173,6 +186,8 @@ void PresentationViewPanel::updatedisplay() {
 /*              Bibliotek → tidslinje & spelning / navigation                */
 /* ------------------------------------------------------------------------- */
 void PresentationViewPanel::onLibraryButtonClicked(int id) {
+    ensureStartItem();
+
     auto txt = QString::fromStdString(workspaceAnimations_.get(id).getName());
     auto* it = new QListWidgetItem(txt, timeline_);
     it->setData(Qt::UserRole, id);
@@ -192,42 +207,49 @@ void PresentationViewPanel::onTimelineDoubleClicked(QListWidgetItem* item) {
 /* ------------------------------------------------------------------------- */
 void PresentationViewPanel::playAnimationById(int id) {
     if (!controller_) return;
+
+    if (id == StartId) {  // START‑block
+        controller_->stop();
+        return;
+    }
     controller_->setAnimation(workspaceAnimations_.get(id));
     controller_->play();
 }
 
 void PresentationViewPanel::jumpRelative(int delta) {
     if (timeline_->count() == 0) return;
+
     int row = timeline_->currentRow();
-    row = (row + delta + timeline_->count()) % timeline_->count();
+    do {
+        row = (row + delta + timeline_->count()) % timeline_->count();
+    } while (timeline_->item(row)->data(Qt::UserRole).toInt() == StartId && delta != 0);
+
     timeline_->setCurrentRow(row);
     int id = timeline_->currentItem()->data(Qt::UserRole).toInt();
     playAnimationById(id);
     updateTimelineHighlight();
 }
 
-/* ---------- NY: total reset ---------- */
+/* ---------- Återställ allt ---------- */
 void PresentationViewPanel::restartPresentation() {
-    if (!controller_ || timeline_->count() == 0) return;
+    if (!controller_) return;
 
-    // 1. samla alla animation‑ID i tidslinjen (kan innehålla dubletter)
-    std::vector<int> ids;
-    ids.reserve(timeline_->count());
+    /* nollställ varje unik animation som finns i tidslinjen */
+    std::unordered_set<int> done;
     for (int i = 0; i < timeline_->count(); ++i) {
-        ids.push_back(timeline_->item(i)->data(Qt::UserRole).toInt());
+        int id = timeline_->item(i)->data(Qt::UserRole).toInt();
+        if (id != StartId && done.insert(id).second) {
+            controller_->setAnimation(workspaceAnimations_.get(id));
+            controller_->stop();
+        }
     }
 
-    // 2. gå igenom tidslinjen och nollställ var och en
-    for (int id : ids) {
-        controller_->setAnimation(workspaceAnimations_.get(id));
-        controller_->stop();  // stoppar och sätter currentTime = 0
-    }
-
-    // 3. välj första blocket och låt den vara aktiv
+    /* hoppa till START */
+    ensureStartItem();
     timeline_->setCurrentRow(0);
-    controller_->setAnimation(workspaceAnimations_.get(ids.front()));
+    playAnimationById(StartId);
     updateTimelineHighlight();
-    updatedisplay();  // uppdatera klockan
+    updatedisplay();
 }
 
 void PresentationViewPanel::playanimation() {
