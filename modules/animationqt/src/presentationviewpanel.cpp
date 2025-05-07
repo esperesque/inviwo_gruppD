@@ -292,10 +292,13 @@ void PresentationViewPanel::onToolbarClicked() { /* reserverad */ }
 
 void PresentationViewPanel::toggleFullscreen() {
     if (window()->isFullScreen()) {
-        window()->showNormal();
-        window()->resize(1280, 720);
-    } else
+       
+        window()->showNormal();                
+        window()->resize(previousWindowSize); 
+    } else {
+        previousWindowSize = window()->size();  
         window()->showFullScreen();
+    }
 }
 
 /* ------------------------------------------------------------------------- */

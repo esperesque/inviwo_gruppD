@@ -99,6 +99,7 @@ private:
     // tid
     QLabel* timeLabel_;
 
+    QSize previousWindowSize;
     /* ---------- genvägar ---------- */
     QShortcut *shortcutNext_, *shortcutPrev_;
 };
