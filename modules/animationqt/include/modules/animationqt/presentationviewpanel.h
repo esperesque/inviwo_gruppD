@@ -87,7 +87,7 @@ private:
     QListWidget* timeline_{nullptr};
     // script / presets / view-controls
     QTextEdit* scriptEdit_{nullptr};
-    QPushButton *btnRotate_{nullptr}, *btnZoom_{nullptr}, *btnShake_{nullptr};
+    QToolButton *btnRotate_, *btnZoom_, *btnShake_;
     QSlider* speedSlider_{nullptr};
     QLabel* speedLabel_{nullptr};
     // play/pause/next

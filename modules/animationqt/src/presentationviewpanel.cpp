@@ -89,11 +89,24 @@ void PresentationViewPanel::setupUI() {
 
     auto* presetBox = new QGroupBox("Animation select");
     auto* grid = new QGridLayout(presetBox);
-    btnRotate_ = new QPushButton("Rotate");
-    btnZoom_ = new QPushButton("Zoom");
-    btnShake_ = new QPushButton("Shake");
-    for (auto* b : {btnRotate_, btnZoom_, btnShake_})
-        connect(b, &QPushButton::clicked, this, &PresentationViewPanel::onPresetClicked);
+    grid->setContentsMargins(4, 4, 4, 4);
+    grid->setSpacing(4);
+
+    // Helper för att skapa en ikon-knapp
+    auto makePresetButton = [&](const QString& iconName, QToolButton*& btn) {
+        btn = new QToolButton;
+        btn->setIcon(QIcon(QString(":/animation/icons/%1.svg").arg(iconName)));
+        btn->setIconSize(QSize(144, 144));                  // gör ikonen större
+        btn->setToolButtonStyle(Qt::ToolButtonIconOnly);  // bara ikon, ingen text
+        btn->setAutoRaise(true);                          // platt stil
+        btn->setFixedSize(144, 144);                        // fyrkantig knapp
+        connect(btn, &QToolButton::clicked, this, &PresentationViewPanel::onPresetClicked);
+    };
+
+    makePresetButton("rotate-animation", btnRotate_);
+    makePresetButton("zoom-animation", btnZoom_);
+    makePresetButton("shakey-animation", btnShake_);
+
     grid->addWidget(btnRotate_, 0, 0);
     grid->addWidget(btnZoom_, 0, 1);
     grid->addWidget(btnShake_, 0, 2);
