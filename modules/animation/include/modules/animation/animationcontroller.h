@@ -52,6 +52,7 @@
 #include <string>       // for operator==, string
 #include <string_view>  // for operator==
 #include <vector>       // for operator!=, vector, operator==
+#include <unordered_map>   // <-- NYTT
 
 namespace inviwo {
 class Deserializer;
@@ -146,6 +147,7 @@ public:
     DoubleMinMaxProperty playWindow;
     DoubleProperty framesPerSecond;
     OptionProperty<PlaybackMode> playMode;
+    BoolProperty playModeLocal;  ///< “Apply to current animation only”
 
     CompositeProperty renderOptions;
     OptionPropertyInt renderWindowMode;
@@ -184,7 +186,7 @@ protected:
     Seconds currentTime_;
 
     PlaybackDirection direction_;
-
+    std::unordered_map<const Animation*, PlaybackMode> perAnimationMode_;
     /// Timer for calling the tick function is regular intervals.
     Timer timer_;
 };

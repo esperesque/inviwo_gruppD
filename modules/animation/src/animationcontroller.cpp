@@ -111,6 +111,9 @@ AnimationController::AnimationController(Animation& animation, AnimationManager&
                 {"Loop", "Loop animation", PlaybackMode::Loop},
                 {"Swing", "Swing animation", PlaybackMode::Swing}},
                0)
+    , playModeLocal("playModeLocal",                    // identifier
+                    "Apply to current animation only",  // display name
+                    false)     
     , renderOptions("RenderOptions", "Render Animation")
     , renderWindowMode("RenderFirstLastTimeOption", "Render",
                        {{"FullTimeWindow", "All", 0}, {"UserTimeWindow", "Window", 1}}, 0)
@@ -168,7 +171,13 @@ AnimationController::AnimationController(Animation& animation, AnimationManager&
     // Play Settings
     playWindow.readonlyDependsOn(playWindowMode, [](auto& prop) { return prop.get() == 0; });
 
-    playOptions.addProperties(playWindowMode, playWindow, framesPerSecond, playMode);
+    playOptions.addProperties(playWindowMode, playWindow, framesPerSecond, playMode, playModeLocal);
+    playMode.onChange([this]() {
+        if (playModeLocal && animation_) {
+            perAnimationMode_[animation_] = playMode.get();
+        }
+    });
+
     playOptions.setCollapsed(true);
 
     framesPerSecond.onChange([this]() {
@@ -503,13 +512,33 @@ void AnimationController::eval(Seconds oldTime, Seconds newTime) {
 }
 
 void AnimationController::setAnimation(Animation& animation) {
-    auto oldAnim = animation_;
+    /* -- NYTT -----------------------------------------------
+       Om kryssrutan inte är ibockad: skriv nuvarande playMode
+       till gamla animationens minne (så allt delar globalt läge).
+    ----------------------------------------------------------*/
+    if (!playModeLocal && animation_ != nullptr) {
+        perAnimationMode_[animation_] = playMode.get();
+    }
+
+    auto* oldAnim = animation_;
     animation_ = &animation;
+
+    /* -- NYTT -----------------------------------------------
+       Om kryssrutan är ibockad och vi har sparat ett eget läge
+       för den nya animationen: återställ det.
+       Annars behåll nuvarande playMode.
+    ----------------------------------------------------------*/
+    if (playModeLocal) {
+        if (auto it = perAnimationMode_.find(animation_); it != perAnimationMode_.end()) {
+            playMode.set(it->second);
+        }
+    }
 
     notifyAnimationChanged(this, oldAnim, animation_);
     setState(AnimationState::Paused);
     setTime(Seconds(0.0));
 }
+
 
 const Animation& AnimationController::getAnimation() const { return *animation_; }
 
