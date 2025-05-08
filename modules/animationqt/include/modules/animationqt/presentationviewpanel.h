@@ -1,8 +1,6 @@
 /*********************************************************************************
- *
  * Inviwo - Interactive Visualization Workshop
- * Copyright (c) 2016‑2025 Inviwo Foundation
- *
+ * Copyright (c) 2016-2025 Inviwo Foundation
  *********************************************************************************/
 #pragma once
 
@@ -24,13 +22,11 @@
 #include <QTimer>
 #include <QShortcut>
 #include <QVBoxLayout>
+#include <unordered_set>
 
 namespace inviwo {
 namespace animation {
 
-/* ------------------------------------------------------------------------- */
-/*                     PresentationViewPanel – huvudklass                    */
-/* ------------------------------------------------------------------------- */
 class PresentationViewPanel : public QWidget {
 public:
     explicit PresentationViewPanel(WorkspaceAnimations& animations,
@@ -46,16 +42,18 @@ private:
     void updatedisplay();
 
     /* ---------- bibliotek / tidslinje ---------- */
-    void updateAnimationLibrary();        // fyll blåa knappar
-    void updateTimelineHighlight();       // markera aktivt block
-    void ensureStartItem();               // ser till att START finns
-    void onLibraryButtonClicked(int id);  // lägg till i TL
+    void ensureStartItem();
+    void updateAnimationLibrary();
+    void updateTimelineHighlight();
+    void onLibraryButtonClicked(int id);
     void onTimelineDoubleClicked(QListWidgetItem* item);
 
-    /* ---------- spel‑/nav‑funktioner ---------- */
+    /* ---------- spel / navigation ---------- */
     void playAnimationById(int id);
-    void jumpRelative(int delta);  // –1 / +1
-    void restartPresentation();    // ↺ återställ allt
+    void jumpRelative(int delta);
+    void restartPresentation();  // ↺
+    void deleteCurrentBox();     // 🗑
+    void clearTimelineBoxes();   // 🧹
     void playanimation();
     void pauseanimation();
     void nextanimation();
@@ -70,7 +68,7 @@ private:
     void toggleFullscreen();
 
     /* ------------------------------------------------------------------ */
-    static constexpr int StartId{-1};  // ID för ”START”
+    static constexpr int StartId{-1};
 
     WorkspaceAnimations& workspaceAnimations_;
     WorkspaceAnimations::OnChangedDispatcher::Handle onChangedHandle_;
@@ -79,29 +77,29 @@ private:
 
     QTimer uiTimer_;
 
-    /* ---------- UI‑element ---------- */
-    // toolbar
-    QToolButton *tbBreak_, *tbAutoplay_, *tbSpeed_, *tbTransition_, *tbExit_, *tbFullscreen_,
-        *tbRestart_;
+    /* ---------- UI-element ---------- */
+    // toolbar-knappar
+    QToolButton *tbBreak_, *tbAutoplay_, *tbExit_, *tbFullscreen_, *tbRestart_, *tbDelete_,
+        *tbClear_;
     // bibliotek
-    QHBoxLayout* libraryLayout_;
+    QHBoxLayout* libraryLayout_{nullptr};
     // tidslinje
-    QListWidget* timeline_;
-    // script
-    QTextEdit* scriptEdit_;
-    // presets
-    QPushButton *btnRotate_, *btnZoom_, *btnShake_;
-    // view‑controls
-    QSlider* speedSlider_;
-    QLabel* speedLabel_;
-    // play/pause
-    QPushButton *playButton_, *pauseButton_, *nextButton_;
+    QListWidget* timeline_{nullptr};
+    // script / presets / view-controls
+    QTextEdit* scriptEdit_{nullptr};
+    QPushButton *btnRotate_{nullptr}, *btnZoom_{nullptr}, *btnShake_{nullptr};
+    QSlider* speedSlider_{nullptr};
+    QLabel* speedLabel_{nullptr};
+    // play/pause/next
+    QPushButton *playButton_{nullptr}, *pauseButton_{nullptr}, *nextButton_{nullptr};
     // tid
-    QLabel* timeLabel_;
+    QLabel* timeLabel_{nullptr};
 
-    QSize previousWindowSize;
     /* ---------- genvägar ---------- */
-    QShortcut *shortcutNext_, *shortcutPrev_;
+    QShortcut *shortcutNext_{nullptr}, *shortcutPrev_{nullptr};
+
+    /* ---------- fullscreen-state ---------- */
+    QSize previousWindowSize;
 };
 
 }  // namespace animation

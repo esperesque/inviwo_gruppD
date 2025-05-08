@@ -1,5 +1,6 @@
 #include "modules/animationqt/presentationviewpanel.h"
 
+#include <QGroupBox>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGridLayout>
@@ -12,46 +13,43 @@ namespace inviwo {
 namespace animation {
 
 /* ------------------------------------------------------------------------- */
-/*                               Konstruktor                                 */
-/* ------------------------------------------------------------------------- */
 PresentationViewPanel::PresentationViewPanel(WorkspaceAnimations& animations,
                                              AnimationController* controller, QWidget* parent)
     : QWidget(parent), workspaceAnimations_{animations}, controller_{controller}, uiTimer_{this} {
 
     setupUI();
 
-    /* uppdatera tiden var 100 ms */
     connect(&uiTimer_, &QTimer::timeout, this, &PresentationViewPanel::updatedisplay);
     uiTimer_.start(100);
 
-    /* lyssna på förändringar i WorkspaceAnimations */
     onChangedHandle_ =
         animations.onChanged_.add([this](size_t, Animation&) { updateAnimationLibrary(); });
 }
 
 /* ------------------------------------------------------------------------- */
-/*                               UI‑bygge                                    */
-/* ------------------------------------------------------------------------- */
 void PresentationViewPanel::setupUI() {
+
     /* ---------- Toolbar ---------- */
     auto* barLayout = new QHBoxLayout;
     barLayout->setSpacing(4);
-    const auto makeTool = [&](const QString& txt) {
+    const auto makeTool = [&](const QString& txt, auto slot) {
         auto* b = new QToolButton;
         b->setText(txt);
-        connect(b, &QToolButton::clicked, this, &PresentationViewPanel::onToolbarClicked);
+        connect(b, &QToolButton::clicked, this, slot);
+        QFont font = b->font();
+        font.setPointSize(16);  // ← prova t.ex. 16 eller 20
+        b->setFont(font);
         barLayout->addWidget(b);
         return b;
     };
-    tbBreak_ = makeTool("⏸");
-    tbAutoplay_ = makeTool("▶");
-    tbSpeed_ = makeTool("⚡");
-    tbTransition_ = makeTool("⇄");
-    tbExit_ = makeTool("⏏");
-    tbFullscreen_ = makeTool("⛶");
-    tbRestart_ = makeTool("↺");  // ↺ reset‑knapp
-    connect(tbFullscreen_, &QToolButton::clicked, this, &PresentationViewPanel::toggleFullscreen);
-    connect(tbRestart_, &QToolButton::clicked, this, &PresentationViewPanel::restartPresentation);
+
+    tbBreak_ = makeTool("‖", &PresentationViewPanel::onToolbarClicked);     // reserverad
+    tbAutoplay_ = makeTool("▶", &PresentationViewPanel::onToolbarClicked);  // reserverad
+ //   tbExit_ = makeTool("⏏", &PresentationViewPanel::onToolbarClicked);      // reserverad
+    tbFullscreen_ = makeTool("⛶", &PresentationViewPanel::toggleFullscreen);
+    tbRestart_ = makeTool("↺", &PresentationViewPanel::restartPresentation);  // reset all
+    tbDelete_ = makeTool("🗑", &PresentationViewPanel::deleteCurrentBox);     // delete sel
+    tbClear_ = makeTool("🧹", &PresentationViewPanel::clearTimelineBoxes);    // clear TL
     barLayout->addStretch(1);
 
     /* ---------- Bibliotek ---------- */
@@ -71,9 +69,9 @@ void PresentationViewPanel::setupUI() {
     connect(timeline_, &QListWidget::itemDoubleClicked, this,
             &PresentationViewPanel::onTimelineDoubleClicked);
 
-    ensureStartItem();  // lägg in START först
+    ensureStartItem();
 
-    /* ---------- Script/preset/view‑boxar ---------- */
+    /* ---------- Script / Presets / View-controls ---------- */
     scriptEdit_ = new QTextEdit;
     scriptEdit_->setPlaceholderText("Presentation notes …");
     auto* scriptBox = new QGroupBox("Script");
@@ -98,7 +96,7 @@ void PresentationViewPanel::setupUI() {
     speedSlider_->setRange(1, 100);
     speedSlider_->setValue(50);
     connect(speedSlider_, &QSlider::valueChanged, this,
-            [this](int value) { speedLabel_->setText(QString("Speed: %1%").arg(value)); });
+            [this](int v) { speedLabel_->setText(QString("Speed: %1%").arg(v)); });
     vLay->addWidget(speedLabel_);
     vLay->addWidget(speedSlider_);
     vLay->addStretch(1);
@@ -123,12 +121,12 @@ void PresentationViewPanel::setupUI() {
     /* ---------- Shortcuts ---------- */
     shortcutNext_ = new QShortcut(QKeySequence(Qt::Key_Space), this);
     connect(shortcutNext_, &QShortcut::activated, [this]() { jumpRelative(+1); });
-    auto* rightArrow = new QShortcut(QKeySequence(Qt::Key_Right), this);
-    connect(rightArrow, &QShortcut::activated, [this]() { jumpRelative(+1); });
     shortcutPrev_ = new QShortcut(QKeySequence(Qt::Key_Left), this);
     connect(shortcutPrev_, &QShortcut::activated, [this]() { jumpRelative(-1); });
+    auto* rightArrow = new QShortcut(QKeySequence(Qt::Key_Right), this);
+    connect(rightArrow, &QShortcut::activated, [this]() { jumpRelative(+1); });
 
-    /* ---------- Tid‑etikett ---------- */
+    /* ---------- Tid-etikett ---------- */
     timeLabel_ = new QLabel("Current Time: 0.00 s");
 
     /* ---------- Huvudlayout ---------- */
@@ -142,26 +140,23 @@ void PresentationViewPanel::setupUI() {
 }
 
 /* ------------------------------------------------------------------------- */
-/*                       Bibliotek & tidslinje‑hjälp                         */
-/* ------------------------------------------------------------------------- */
+/*                         Bibliotek / tidslinje-hjälp                       */
 void PresentationViewPanel::ensureStartItem() {
     if (timeline_->count() == 0 || timeline_->item(0)->data(Qt::UserRole).toInt() != StartId) {
-
         auto* start = new QListWidgetItem("START", timeline_);
         start->setData(Qt::UserRole, StartId);
         start->setSizeHint(QSize(100, 50));
         timeline_->insertItem(0, start);
-        timeline_->setCurrentRow(0);
     }
+    timeline_->setCurrentRow(0);
+    updateTimelineHighlight();
 }
 
 void PresentationViewPanel::updateAnimationLibrary() {
-    QLayoutItem* child;
-    while ((child = libraryLayout_->takeAt(0))) delete child;
+    while (auto* c = libraryLayout_->takeAt(0)) delete c;
 
     for (int i = 0; i < static_cast<int>(workspaceAnimations_.size()); ++i) {
-        QString txt = QString::fromStdString(workspaceAnimations_.get(i).getName());
-        auto* btn = new QPushButton(txt);
+        auto* btn = new QPushButton(QString::fromStdString(workspaceAnimations_.get(i).getName()));
         btn->setFixedHeight(28);
         connect(btn, &QPushButton::clicked, [this, i]() { onLibraryButtonClicked(i); });
         libraryLayout_->addWidget(btn);
@@ -178,20 +173,16 @@ void PresentationViewPanel::updateTimelineHighlight() {
 
 /* ------------------------------------------------------------------------- */
 void PresentationViewPanel::updatedisplay() {
-    if (controller_) {
-        double t = controller_->getCurrentTime().count();
-        timeLabel_->setText(QString("Current Time: %1 s").arg(t, 0, 'f', 2));
-    }
+    if (controller_)
+        timeLabel_->setText(
+            QString("Current Time: %1 s").arg(controller_->getCurrentTime().count(), 0, 'f', 2));
 }
 
 /* ------------------------------------------------------------------------- */
-/*              Bibliotek → tidslinje & spelning / navigation                */
-/* ------------------------------------------------------------------------- */
 void PresentationViewPanel::onLibraryButtonClicked(int id) {
     ensureStartItem();
-
-    auto txt = QString::fromStdString(workspaceAnimations_.get(id).getName());
-    auto* it = new QListWidgetItem(txt, timeline_);
+    auto* it = new QListWidgetItem(QString::fromStdString(workspaceAnimations_.get(id).getName()),
+                                   timeline_);
     it->setData(Qt::UserRole, id);
     it->setSizeHint(QSize(100, 50));
     timeline_->setCurrentItem(it);
@@ -199,18 +190,13 @@ void PresentationViewPanel::onLibraryButtonClicked(int id) {
 }
 
 void PresentationViewPanel::onTimelineDoubleClicked(QListWidgetItem* item) {
-    int id = item->data(Qt::UserRole).toInt();
-    playAnimationById(id);
-    updateTimelineHighlight();
+    playAnimationById(item->data(Qt::UserRole).toInt());
 }
 
 /* ------------------------------------------------------------------------- */
-/*                       Spel‑funktioner & navigation                         */
-/* ------------------------------------------------------------------------- */
 void PresentationViewPanel::playAnimationById(int id) {
     if (!controller_) return;
-
-    if (id == StartId) {  // START‑block
+    if (id == StartId) {
         controller_->stop();
         return;
     }
@@ -218,25 +204,34 @@ void PresentationViewPanel::playAnimationById(int id) {
     controller_->play();
 }
 
-void PresentationViewPanel::jumpRelative(int delta) {
+void PresentationViewPanel::jumpRelative(int d) {
     if (timeline_->count() == 0) return;
-
-    int row = timeline_->currentRow();
+    int r = timeline_->currentRow();
     do {
-        row = (row + delta + timeline_->count()) % timeline_->count();
-    } while (timeline_->item(row)->data(Qt::UserRole).toInt() == StartId && delta != 0);
-
-    timeline_->setCurrentRow(row);
-    int id = timeline_->currentItem()->data(Qt::UserRole).toInt();
-    playAnimationById(id);
+        r = (r + d + timeline_->count()) % timeline_->count();
+    } while (timeline_->item(r)->data(Qt::UserRole).toInt() == StartId && d != 0);
+    timeline_->setCurrentRow(r);
+    playAnimationById(timeline_->currentItem()->data(Qt::UserRole).toInt());
     updateTimelineHighlight();
 }
 
-/* ---------- Återställ allt ---------- */
+/* ---------- 🗑  Delete markerad box ---------- */
+void PresentationViewPanel::deleteCurrentBox() {
+    if (!timeline_->currentItem() || timeline_->currentRow() == 0) return;  // skydda START
+    delete timeline_->takeItem(timeline_->currentRow());
+    ensureStartItem();
+}
+
+/* ---------- 🧹 Rensa alla animations-boxar ---------- */
+void PresentationViewPanel::clearTimelineBoxes() {
+    while (timeline_->count() > 1) delete timeline_->takeItem(1);
+    ensureStartItem();
+}
+
+/* ---------- ↺ Reset allt ---------- */
 void PresentationViewPanel::restartPresentation() {
     if (!controller_) return;
 
-    /* nollställ varje unik animation som finns i tidslinjen */
     std::unordered_set<int> done;
     for (int i = 0; i < timeline_->count(); ++i) {
         int id = timeline_->item(i)->data(Qt::UserRole).toInt();
@@ -245,15 +240,12 @@ void PresentationViewPanel::restartPresentation() {
             controller_->stop();
         }
     }
-
-    /* hoppa till START */
     ensureStartItem();
-    timeline_->setCurrentRow(0);
     playAnimationById(StartId);
-    updateTimelineHighlight();
     updatedisplay();
 }
 
+/* ------------------------------------------------------------------------- */
 void PresentationViewPanel::playanimation() {
     if (controller_) controller_->play();
 }
@@ -263,44 +255,35 @@ void PresentationViewPanel::pauseanimation() {
 void PresentationViewPanel::nextanimation() { jumpRelative(+1); }
 
 /* ------------------------------------------------------------------------- */
-/*                               Presets                                     */
-/* ------------------------------------------------------------------------- */
 void PresentationViewPanel::onPresetClicked() {
     if (sender() == btnRotate_) addRotatePreset();
 }
-
 void PresentationViewPanel::addRotatePreset() {
     if (!controller_ || !camera_) return;
     auto& anim = controller_->getAnimation();
-    Seconds t0 = controller_->getCurrentTime();
-    Seconds t1 = t0 + Seconds{2.0};
+    Seconds t0 = controller_->getCurrentTime(), t1 = t0 + Seconds{2};
     anim.addKeyframe(camera_, t0);
     rotateCameraBy(glm::radians(90.f));
     anim.addKeyframe(camera_, t1);
     controller_->play();
 }
-
-void PresentationViewPanel::rotateCameraBy(float angleRad) {
+void PresentationViewPanel::rotateCameraBy(float a) {
     if (!camera_) return;
-    auto from = camera_->getLookFrom();
-    glm::mat4 R = glm::rotate(glm::mat4(1.f), angleRad, glm::vec3(0, 1, 0));
-    camera_->setLookFrom(glm::vec3(R * glm::vec4(from, 1)));
+    camera_->setLookFrom(glm::vec3(glm::rotate(glm::mat4(1.f), a, {0, 1, 0}) *
+                                   glm::vec4(camera_->getLookFrom(), 1)));
 }
 
 /* ------------------------------------------------------------------------- */
 void PresentationViewPanel::onToolbarClicked() { /* reserverad */ }
-
 void PresentationViewPanel::toggleFullscreen() {
     if (window()->isFullScreen()) {
-       
-        window()->showNormal();                
-        window()->resize(previousWindowSize); 
+        window()->showNormal();
+        window()->resize(previousWindowSize);
     } else {
-        previousWindowSize = window()->size();  
+        previousWindowSize = window()->size();
         window()->showFullScreen();
     }
 }
-
 /* ------------------------------------------------------------------------- */
 void PresentationViewPanel::setController(AnimationController* c) { controller_ = c; }
 void PresentationViewPanel::setCamera(CameraProperty* cam) { camera_ = cam; }
