@@ -1,5 +1,7 @@
 #include "modules/animationqt/presentationviewpanel.h"
 
+#include <QIcon>
+#include <QSize>
 #include <QGroupBox>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -46,7 +48,14 @@ void PresentationViewPanel::setupUI() {
     tbBreak_ = makeTool("‖", &PresentationViewPanel::onToolbarClicked);     // reserverad
     tbAutoplay_ = makeTool("▶", &PresentationViewPanel::onToolbarClicked);  // reserverad
  //   tbExit_ = makeTool("⏏", &PresentationViewPanel::onToolbarClicked);      // reserverad
-    tbFullscreen_ = makeTool("⛶", &PresentationViewPanel::toggleFullscreen);
+
+    tbFullscreen_ = makeTool("", &PresentationViewPanel::toggleFullscreen);
+    tbFullscreen_->setIcon( QIcon(":/animation/icons/fullscreen.svg") );
+    tbFullscreen_->setIconSize(QSize(24, 24));  // justera efter behov
+    tbFullscreen_->setToolButtonStyle(Qt::ToolButtonIconOnly);
+    tbFullscreen_->setToolTip("Toggle fullscreen");
+
+
     tbRestart_ = makeTool("↺", &PresentationViewPanel::restartPresentation);  // reset all
     tbDelete_ = makeTool("🗑", &PresentationViewPanel::deleteCurrentBox);     // delete sel
     tbClear_ = makeTool("🧹", &PresentationViewPanel::clearTimelineBoxes);    // clear TL
