@@ -67,6 +67,11 @@ private:
     void onToolbarClicked();
     void toggleFullscreen();
 
+    // ---------- font‐storleksändring ----------
+    void increaseScriptFont();
+    void decreaseScriptFont();
+
+
     /* ------------------------------------------------------------------ */
     static constexpr int StartId{-1};
 
@@ -85,9 +90,19 @@ private:
     QHBoxLayout* libraryLayout_{nullptr};
     // tidslinje
     QListWidget* timeline_{nullptr};
+
+
     // script / presets / view-controls
-    QTextEdit* scriptEdit_{nullptr};
-    QToolButton *btnRotate_, *btnZoom_, *btnShake_;
+         QTextEdit* scriptEdit_{nullptr};
+      // --- preset‐ikoner ---
+        QToolButton *btnRotate_,
+        *btnZoom_, *btnShake_;
+    // --- font‐kontroller för scriptEdit_ ---
+        QToolButton *btnFontDecrease_,
+        *btnFontIncrease_;
+        QLabel* scriptFontSizeLabel_{nullptr};
+    int scriptFontSize_{16};  ///< startstorlek i pt
+
     QSlider* speedSlider_{nullptr};
     QLabel* speedLabel_{nullptr};
     // play/pause/next

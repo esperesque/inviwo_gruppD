@@ -9,6 +9,9 @@
 #include <QToolButton>
 #include <QListWidgetItem>
 #include <QStyle>
+#include <QFont>
+#include <QLabel>
+#include <Qt>
 #include <glm/gtc/matrix_transform.hpp>
 
 namespace inviwo {
@@ -80,12 +83,59 @@ void PresentationViewPanel::setupUI() {
 
     ensureStartItem();
 
-    /* ---------- Script / Presets / View-controls ---------- */
+
+/* ---------- Script / Presets / View-controls ---------- */
+    // Layout för anteckningar + font‐kontroller
+    auto* notesLayout = new QVBoxLayout;
+
+    // 1) Rad med reduce-ikon, siffra, increase-ikon
+    auto* fontCtrlLay = new QHBoxLayout;
+
+    // Minus-knapp
+    btnFontDecrease_ = new QToolButton;
+    btnFontDecrease_->setIcon(QIcon(":/animation/icons/arrow_bottom_direction_down_icon_128.svg"));
+    btnFontDecrease_->setIconSize(QSize(18, 18));
+    btnFontDecrease_->setToolButtonStyle(Qt::ToolButtonIconOnly);
+    btnFontDecrease_->setAutoRaise(true);
+    btnFontDecrease_->setToolTip("Minska fontstorlek");
+    connect(btnFontDecrease_, &QToolButton::clicked, this,
+            &PresentationViewPanel::decreaseScriptFont);
+
+    // Fontstorleks-label
+    scriptFontSizeLabel_ = new QLabel(QString::number(scriptFontSize_));
+    scriptFontSizeLabel_->setAlignment(Qt::AlignCenter);
+
+    // Plus-knapp
+    btnFontIncrease_ = new QToolButton;
+    btnFontIncrease_->setIcon(QIcon(":/animation/icons/arrow_direction_top_up_icon_128.svg"));
+    btnFontIncrease_->setIconSize(QSize(18, 18));
+    btnFontIncrease_->setToolButtonStyle(Qt::ToolButtonIconOnly);
+    btnFontIncrease_->setAutoRaise(true);
+    btnFontIncrease_->setToolTip("Öka fontstorlek");
+    connect(btnFontIncrease_, &QToolButton::clicked, this,
+            &PresentationViewPanel::increaseScriptFont);
+
+    // Bygg raden
+    fontCtrlLay->addWidget(btnFontDecrease_);
+    fontCtrlLay->addWidget(scriptFontSizeLabel_);
+    fontCtrlLay->addWidget(btnFontIncrease_);
+    fontCtrlLay->addStretch(1);
+    notesLayout->addLayout(fontCtrlLay);
+
+    // 2) Själva anteckningsrutan
     scriptEdit_ = new QTextEdit;
     scriptEdit_->setPlaceholderText("Presentation notes …");
+    {
+        QFont f = scriptEdit_->font();
+        f.setPointSize(scriptFontSize_);
+        scriptEdit_->setFont(f);
+    }
+    notesLayout->addWidget(scriptEdit_);
+
+    // Wrap i GroupBox
     auto* scriptBox = new QGroupBox("Script");
-    auto* scrLay = new QVBoxLayout(scriptBox);
-    scrLay->addWidget(scriptEdit_);
+    scriptBox->setLayout(notesLayout);
+
 
     auto* presetBox = new QGroupBox("Animation select");
     auto* grid = new QGridLayout(presetBox);
@@ -306,6 +356,26 @@ void PresentationViewPanel::toggleFullscreen() {
         window()->showFullScreen();
     }
 }
+
+void PresentationViewPanel::increaseScriptFont() {
+    scriptFontSize_ = qMin(scriptFontSize_ + 1, 72);
+    QFont f = scriptEdit_->font();
+    f.setPointSize(scriptFontSize_);
+    scriptEdit_->setFont(f);
+    // NY RAD:
+    scriptFontSizeLabel_->setText(QString::number(scriptFontSize_));
+}
+
+void PresentationViewPanel::decreaseScriptFont() {
+    scriptFontSize_ = qMax(scriptFontSize_ - 1, 8);
+    QFont f = scriptEdit_->font();
+    f.setPointSize(scriptFontSize_);
+    scriptEdit_->setFont(f);
+    // NY RAD:
+    scriptFontSizeLabel_->setText(QString::number(scriptFontSize_));
+}
+
+
 /* ------------------------------------------------------------------------- */
 void PresentationViewPanel::setController(AnimationController* c) { controller_ = c; }
 void PresentationViewPanel::setCamera(CameraProperty* cam) { camera_ = cam; }
