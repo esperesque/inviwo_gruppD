@@ -48,20 +48,66 @@ void PresentationViewPanel::setupUI() {
         return b;
     };
 
-    tbBreak_ = makeTool("‖", &PresentationViewPanel::onToolbarClicked);     // reserverad
-    tbAutoplay_ = makeTool("▶", &PresentationViewPanel::onToolbarClicked);  // reserverad
- //   tbExit_ = makeTool("⏏", &PresentationViewPanel::onToolbarClicked);      // reserverad
+// pausa (“break”)
+    tbBreak_ = makeTool("", &PresentationViewPanel::onToolbarClicked);
+    tbBreak_->setIcon(QIcon(":/animation/icons/film_movie_pause_player_sound_icon_128.svg"));
+    tbBreak_->setIconSize(QSize(24, 24));
+    tbBreak_->setToolButtonStyle(Qt::ToolButtonIconOnly);
+    tbBreak_->setToolTip("Pause");
 
+    // autoplay
+    tbAutoplay_ = makeTool("", &PresentationViewPanel::onToolbarClicked);
+    tbAutoplay_->setIcon(
+        QIcon(":/animation/icons/arrow_play_player_record_right_start_icon_128.svg"));
+    tbAutoplay_->setIconSize(QSize(24, 24));
+    tbAutoplay_->setToolButtonStyle(Qt::ToolButtonIconOnly);
+    tbAutoplay_->setToolTip("Play");
+
+    // restart
+    tbRestart_ = makeTool("", &PresentationViewPanel::restartPresentation);
+    tbRestart_->setIcon(
+        QIcon(":/animation/icons/arrow_direction_refresh_repeat_restart_icon_128.svg"));
+    tbRestart_->setIconSize(QSize(24, 24));
+    tbRestart_->setToolButtonStyle(Qt::ToolButtonIconOnly);
+    tbRestart_->setToolTip("Restart Presentation");
+
+    // delete current box
+    tbDelete_ = makeTool("", &PresentationViewPanel::deleteCurrentBox);
+    tbDelete_->setIcon(QIcon(":/animation/icons/basket_delete_garbage_trash_waste_icon_128.svg"));
+    tbDelete_->setIconSize(QSize(24, 24));
+    tbDelete_->setToolButtonStyle(Qt::ToolButtonIconOnly);
+    tbDelete_->setToolTip("Delete Current Box");
+
+    // clear timeline
+    tbClear_ = makeTool("", &PresentationViewPanel::clearTimelineBoxes);
+    tbClear_->setIcon(
+        QIcon(":/animation/icons/check_checkmark_good_improve_improved_ok_success_icon_128.svg"));
+    tbClear_->setIconSize(QSize(24, 24));
+    tbClear_->setToolButtonStyle(Qt::ToolButtonIconOnly);
+    tbClear_->setToolTip("Clear Timeline");
+
+    // fullscreen
     tbFullscreen_ = makeTool("", &PresentationViewPanel::toggleFullscreen);
-    tbFullscreen_->setIcon( QIcon(":/animation/icons/fullscreen.svg") );
-    tbFullscreen_->setIconSize(QSize(24, 24));  // justera efter behov
+    tbFullscreen_->setIcon(QIcon(":/animation/icons/full_movie_screen_video_watch_icon_128.svg"));
+    tbFullscreen_->setIconSize(QSize(24, 24));
     tbFullscreen_->setToolButtonStyle(Qt::ToolButtonIconOnly);
-    tbFullscreen_->setToolTip("Toggle fullscreen");
+    tbFullscreen_->setToolTip("Fullscreen");
+
+    // exit
+    tbExit_ = new QToolButton;
+    tbExit_->setIcon(QIcon(":/animation/icons/arrow_back_direction_reply_icon_128.svg"));
+    tbExit_->setIconSize(QSize(24, 24));
+    tbExit_->setToolButtonStyle(Qt::ToolButtonIconOnly);
+    tbExit_->setToolTip("Leave Presentation View");
+    // När man klickar: stäng hela widget-fönstret
+    connect(tbExit_, &QToolButton::clicked, this, [this]() {
+        // stäng hela fönstret (dock-widget eller dialog) som innehåller oss
+        window()->close();
+    });
+    // Lägg till i toolbar-layouten
+    barLayout->addWidget(tbExit_);
 
 
-    tbRestart_ = makeTool("↺", &PresentationViewPanel::restartPresentation);  // reset all
-    tbDelete_ = makeTool("🗑", &PresentationViewPanel::deleteCurrentBox);     // delete sel
-    tbClear_ = makeTool("🧹", &PresentationViewPanel::clearTimelineBoxes);    // clear TL
     barLayout->addStretch(1);
 
     /* ---------- Bibliotek ---------- */
