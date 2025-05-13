@@ -76,14 +76,15 @@ private:
     // ---------- font‐storleksändring ----------
     void increaseScriptFont();
     void decreaseScriptFont();
-
+    void createTransition();
+    void buildRuntimeTransition();
 
     /* ------------------------------------------------------------------ */
     static constexpr int StartId{-1};       ///< ”START”-boxen i tidslinjen
     static constexpr int IdleRotateId{-2};  ///< genererad av   btnRotate_
     static constexpr int IdleZoomId{-3};    ///< genererad av   btnZoom_
     static constexpr int IdleShakeId{-4};   ///< genererad av   btnShake_
-
+    static constexpr int TransitionDummyId{-5};  ///< markerar ”X-fade”-block
 
     WorkspaceAnimations& workspaceAnimations_;
     WorkspaceAnimations::OnChangedDispatcher::Handle onChangedHandle_;
@@ -95,7 +96,7 @@ private:
     /* ---------- UI-element ---------- */
     // toolbar-knappar
     QToolButton *tbBreak_, *tbAutoplay_, *tbExit_, *tbFullscreen_, *tbRestart_, *tbDelete_,
-        *tbClear_;
+        *tbClear_, *tbTransition_;  // ← NY!
     // bibliotek
     QHBoxLayout* libraryLayout_{nullptr};
     // tidslinje

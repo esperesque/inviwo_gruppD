@@ -258,5 +258,8 @@
         <file>icons/rotate-animation.svg</file>
         <file>icons/zoom-animation.svg</file>
         <file>icons/shakey-animation.svg</file>
-	</qresource>
+        <file>icons/transition-square.svg</file>
+
+
+    </qresource>
 </RCC>

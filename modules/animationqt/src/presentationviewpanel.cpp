@@ -16,6 +16,7 @@
 #include <Qt>
 #include <glm/gtc/matrix_transform.hpp>
 #include <random>
+#include <memory>
 
 namespace inviwo {
 namespace animation {
@@ -88,6 +89,15 @@ void PresentationViewPanel::setupUI() {
     tbClear_->setIconSize(QSize(24, 24));
     tbClear_->setToolButtonStyle(Qt::ToolButtonIconOnly);
     tbClear_->setToolTip("Clear Timeline");
+
+    // transition-knapp
+    tbTransition_ = makeTool("", &PresentationViewPanel::createTransition);
+    tbTransition_->setIcon(
+        QIcon(":/animation/icons/transition-square.svg"));  // lägg SVG i resurser
+    tbTransition_->setIconSize(QSize(24, 24));
+    tbTransition_->setToolButtonStyle(Qt::ToolButtonIconOnly);
+    tbTransition_->setToolTip("Insert transition (cross-fade)");
+
 
     // fullscreen
     tbFullscreen_ = makeTool("", &PresentationViewPanel::toggleFullscreen);
@@ -337,13 +347,13 @@ void PresentationViewPanel::onTimelineDoubleClicked(QListWidgetItem* item) {
 void PresentationViewPanel::playAnimationById(int id) {
     if (!controller_) return;
 
-    /* --- START-block --- */
+    /* ---------- START ---------- */
     if (id == StartId) {
         controller_->stop();
         return;
     }
 
-    /* --- Idle-presets ------------------------------------ */
+    /* ---------- IDLE-PRESETS ---------- */
     if (id == IdleRotateId) {
         addRotatePreset();
         return;
@@ -357,22 +367,29 @@ void PresentationViewPanel::playAnimationById(int id) {
         return;
     }
 
-    /* --- Vanliga (>=0) animationer -------------------------------- */
+    /* ---------- TRANSITION-BLOCK ---------- */
+    if (id == TransitionDummyId) {
+        buildRuntimeTransition();
+        return;
+    }
+
+    /* ---------- VANLIGA ANIMATIONER (index ≥ 0) ---------- */
     if (id >= 0 && id < static_cast<int>(workspaceAnimations_.size())) {
 
         Animation& anim = workspaceAnimations_.get(id);
         controller_->setAnimation(anim);
 
-        /* -- ställ in lokalt spelläge -- */
+        /* – lokalt spelläge – */
         controller_->playModeLocal.set(true);
 
-        /* -- Idle-animationer loopar, andra körs en gång -- */
+        /* – Idle→Loop / övriga→Once – */
         const bool isIdle = anim.getName().rfind("Idle ", 0) == 0;
         controller_->playMode.set(isIdle ? PlaybackMode::Loop : PlaybackMode::Once);
 
         controller_->play();
     }
 }
+
 
 
 void PresentationViewPanel::jumpRelative(int d) {
@@ -647,6 +664,88 @@ void PresentationViewPanel::decreaseScriptFont() {
     // NY RAD:
     scriptFontSizeLabel_->setText(QString::number(scriptFontSize_));
 }
+
+
+
+
+// --- Lägg detta någonstans efter dina andra preset-/helper-funktioner ---
+
+
+/***** (A)  anropas av knappen – sätter bara in en liten ruta *****/
+void PresentationViewPanel::createTransition() {
+    int row = timeline_->currentRow();
+    if (row < 0) return;  // ingen markering
+
+    /* Infoga direkt EFTER den markerade rutan (även om det är sista) */
+    auto* box = new QListWidgetItem("↔", timeline_);
+    box->setData(Qt::UserRole, TransitionDummyId);
+    box->setSizeHint(QSize(40, 40));  // liten kvadrat
+    timeline_->insertItem(row + 1, box);
+    timeline_->setCurrentItem(box);
+    updateTimelineHighlight();
+}
+
+/***** (B)  anropas när ↔-rutan skall spelas *****/
+void PresentationViewPanel::buildRuntimeTransition() {
+    if (!controller_ || !camera_) return;
+
+    /* ---------- 1)  hitta prev / next block ---------- */
+    const int row = timeline_->currentRow();
+    if (row <= 0) return;  // inget före
+
+    const int prevId = timeline_->item(row - 1)->data(Qt::UserRole).toInt();
+    if (prevId < 0) return;  // preset/dummy
+
+    int nextId = -1;
+    for (int i = row + 1; i < timeline_->count(); ++i) {
+        int cand = timeline_->item(i)->data(Qt::UserRole).toInt();
+        if (cand >= 0) {
+            nextId = cand;
+            break;
+        }
+    }
+
+    Animation& prev = workspaceAnimations_.get(prevId);
+
+    /* ---------- 2) e-valuera SLUTET på föregående ---------- */
+    Seconds tPrevEnd = prev.getLastTime();
+    controller_->setAnimation(prev);
+    controller_->eval(controller_->getCurrentTime(), tPrevEnd);  // flytta nätet
+    // -> kamera-propertyn innehåller nu slutläget
+
+    /* ---------- 3) e-valuera BÖRJAN på nästa (om det finns) ---------- */
+    bool haveNext = (nextId >= 0);
+    Animation* next = haveNext ? &workspaceAnimations_.get(nextId) : nullptr;
+    Seconds tNextBeg = haveNext ? next->getFirstTime() : Seconds{0};
+
+    /* ---------- 4) skapa/återanvänd temporär övergång ---------- */
+    static Animation* transAnim = nullptr;
+    if (!transAnim) {  // första gången
+        transAnim = &workspaceAnimations_.add("__pv_transition_tmp__");
+    }
+    transAnim->clear();
+
+    Seconds t0{0}, t1{1.0};  // 1 s övergång
+
+    transAnim->addKeyframe(camera_, t0);  // första KF = nuvarande kameraläge
+
+    if (haveNext) {
+        controller_->setAnimation(*next);
+        controller_->eval(controller_->getCurrentTime(), tNextBeg);
+        transAnim->addKeyframe(camera_, t1);  // andra KF = början på nästa
+    }
+
+    /* ---------- 5) spela övergången ---------- */
+    controller_->setAnimation(*transAnim);
+    controller_->playModeLocal.set(true);           // påverkar bara denna
+    controller_->playMode.set(PlaybackMode::Once);  // spelas en gång
+    controller_->play();
+}
+
+
+
+
+
 
 
 /* ------------------------------------------------------------------------- */
