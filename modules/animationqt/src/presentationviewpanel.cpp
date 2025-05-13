@@ -1,4 +1,6 @@
 #include "modules/animationqt/presentationviewpanel.h"
+#include <modules/animation/datastructures/keyframesequence.h>   //  <-- NY!
+#include <modules/animation/datastructures/valuekeyframe.h>
 
 #include <QIcon>
 #include <QSize>
@@ -13,6 +15,7 @@
 #include <QLabel>
 #include <Qt>
 #include <glm/gtc/matrix_transform.hpp>
+#include <random>
 
 namespace inviwo {
 namespace animation {
@@ -113,6 +116,9 @@ void PresentationViewPanel::setupUI() {
     /* ---------- Bibliotek ---------- */
     libraryLayout_ = new QHBoxLayout;
     libraryLayout_->setSpacing(4);
+    libraryWidget_ = new QWidget;  // <-- NYTT
+    libraryWidget_->setLayout(libraryLayout_);
+    libraryWidget_->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);  
     updateAnimationLibrary();
 
     /* ---------- Timeline ---------- */
@@ -250,7 +256,7 @@ void PresentationViewPanel::setupUI() {
     /* ---------- Huvudlayout ---------- */
     auto* main = new QVBoxLayout(this);
     main->addLayout(barLayout);
-    main->addLayout(libraryLayout_);
+    main->addWidget(libraryWidget_);  // <-- NYTT
     main->addWidget(timeline_);
     main->addLayout(threeCols);
     main->addWidget(timeLabel_);
@@ -271,14 +277,30 @@ void PresentationViewPanel::ensureStartItem() {
 }
 
 void PresentationViewPanel::updateAnimationLibrary() {
-    while (auto* c = libraryLayout_->takeAt(0)) delete c;
+    QLayoutItem* child = nullptr;
+    while ((child = libraryLayout_->takeAt(0))) {
+        if (auto* w = child->widget()) {  // ❶ frigör själva knappen
+            w->deleteLater();             //   (Qt-säkert)
+        }
+        delete child;  // ❷ radera layoutItem
+    }
 
     for (int i = 0; i < static_cast<int>(workspaceAnimations_.size()); ++i) {
-        auto* btn = new QPushButton(QString::fromStdString(workspaceAnimations_.get(i).getName()));
+        const auto& anim = workspaceAnimations_.get(i);
+
+        /* hoppa över alla preset-animationer */
+        if (anim.getName().rfind("Idle ", 0) == 0) continue;
+
+        auto* btn = new QPushButton(QString::fromStdString(anim.getName()));
         btn->setFixedHeight(28);
+        const int maxBtnW = 140;                 // • hur bred en knapp FÅR bli
+        btn->setMaximumWidth(maxBtnW);           //   (justera om du vill)
+        btn->setSizePolicy(QSizePolicy::Fixed,   // • får inte växa i X-led
+                           QSizePolicy::Fixed);  // • eller i Y-led
         connect(btn, &QPushButton::clicked, [this, i]() { onLibraryButtonClicked(i); });
         libraryLayout_->addWidget(btn);
     }
+
     libraryLayout_->addStretch(1);
 }
 
@@ -314,13 +336,34 @@ void PresentationViewPanel::onTimelineDoubleClicked(QListWidgetItem* item) {
 /* ------------------------------------------------------------------------- */
 void PresentationViewPanel::playAnimationById(int id) {
     if (!controller_) return;
-    if (id == StartId) {
-        controller_->stop();
-        return;
+
+    switch (id) {
+        case StartId:
+            controller_->stop();
+            return;
+
+        case IdleRotateId:
+            addRotatePreset();  // skapar/uppdaterar idle-rotation
+            return;
+
+        case IdleZoomId:
+            addZoomPreset();  // (funktionen finns redan)
+            return;
+
+        case IdleShakeId:
+            addShakePreset();  // (funktionen finns redan)
+            return;
+
+        default:
+            break;  // fall through till ”riktiga” animationer
     }
-    controller_->setAnimation(workspaceAnimations_.get(id));
-    controller_->play();
+
+    if (id >= 0 && id < static_cast<int>(workspaceAnimations_.size())) {
+        controller_->setAnimation(workspaceAnimations_.get(id));
+        controller_->play();
+    }
 }
+
 
 void PresentationViewPanel::jumpRelative(int d) {
     if (timeline_->count() == 0) return;
@@ -353,11 +396,12 @@ void PresentationViewPanel::restartPresentation() {
     std::unordered_set<int> done;
     for (int i = 0; i < timeline_->count(); ++i) {
         int id = timeline_->item(i)->data(Qt::UserRole).toInt();
-        if (id != StartId && done.insert(id).second) {
+        if (id >= 0 && done.insert(id).second) {
             controller_->setAnimation(workspaceAnimations_.get(id));
             controller_->stop();
         }
     }
+
     ensureStartItem();
     playAnimationById(StartId);
     updatedisplay();
@@ -373,18 +417,175 @@ void PresentationViewPanel::pauseanimation() {
 void PresentationViewPanel::nextanimation() { jumpRelative(+1); }
 
 /* ------------------------------------------------------------------------- */
-void PresentationViewPanel::onPresetClicked() {
-    if (sender() == btnRotate_) addRotatePreset();
+/* ======================  Idle-preset-skapare  ============================= */
+void PresentationViewPanel::createIdleRotate() {
+    if (!camera_) return;
+    // 1) Skapa en ny animation
+    const std::string name = "Idle Rotate " + std::to_string(workspaceAnimations_.size());
+    Animation& anim = workspaceAnimations_.add(name);
+
+    // 2) Två keyframes (0 s och 2 s)
+    Seconds t0{0}, t1{2};
+    anim.addKeyframe(camera_, t0);
+
+    // Rotera 90° runt Y-axeln med bibehållet avstånd
+    auto to = camera_->getLookTo();
+    auto from = camera_->getLookFrom();
+    glm::vec3 dir = from - to;
+    glm::vec3 newFrom =
+        glm::vec3(glm::rotate(glm::mat4(1.f), glm::radians(90.f), glm::vec3(0, 1, 0)) *
+                  glm::vec4(dir, 0)) +
+        to;
+    camera_->setLookFrom(newFrom);
+    anim.addKeyframe(camera_, t1);
+
+    // Återställ property-värdet
+    camera_->setLookFrom(from);
+
+    // 3) Lägg blocket sist i tidslinjen
+    onLibraryButtonClicked(static_cast<int>(workspaceAnimations_.size() - 1));
 }
+
+void PresentationViewPanel::createIdleZoom() {
+    if (!camera_) return;
+    const std::string name = "Idle Zoom " + std::to_string(workspaceAnimations_.size());
+    Animation& anim = workspaceAnimations_.add(name);
+
+    Seconds t0{0}, t1{1}, t2{2};
+    auto from = camera_->getLookFrom();
+    auto to = camera_->getLookTo();
+
+    anim.addKeyframe(camera_, t0);
+    camera_->setLookFrom(to + (from - to) * 0.85f);  // 15 % in
+    anim.addKeyframe(camera_, t1);
+    camera_->setLookFrom(from);  // tillbaka
+    anim.addKeyframe(camera_, t2);
+
+    onLibraryButtonClicked(static_cast<int>(workspaceAnimations_.size() - 1));
+}
+
+
+
+void PresentationViewPanel::createIdleShake() {
+    if (!camera_) return;
+    const std::string name = "Idle Shake " + std::to_string(workspaceAnimations_.size());
+    Animation& anim = workspaceAnimations_.add(name);
+
+    Seconds t0{0}, t1{0.25}, t2{0.5}, t3{0.75}, t4{1};
+    auto base = camera_->getLookFrom();
+
+    auto addKF = [&](Seconds t, float dx, float dy) {
+        camera_->setLookFrom(base + glm::vec3(dx, dy, 0));
+        anim.addKeyframe(camera_, t);
+    };
+
+    anim.addKeyframe(camera_, t0);
+    addKF(t1, 0.02f, 0.01f);
+    addKF(t2, -0.02f, -0.015f);
+    addKF(t3, 0.01f, -0.02f);
+    camera_->setLookFrom(base);
+    anim.addKeyframe(camera_, t4);
+
+    onLibraryButtonClicked(static_cast<int>(workspaceAnimations_.size() - 1));
+}
+
+int PresentationViewPanel::makeIdleAnim(const std::string& name) {
+    // 1) skapa Animationen
+    Animation& idle = workspaceAnimations_.add(name);
+
+    // 2) få dess index
+    const int idx = static_cast<int>(
+        std::distance(workspaceAnimations_.begin(), workspaceAnimations_.find(&idle)));
+
+    // 3) uppdatera biblioteket + lägg in i tidslinjen
+    updateAnimationLibrary();
+    onLibraryButtonClicked(idx);
+
+    // 4) se till att editeraren jobbar mot denna nya animation
+    controller_->setAnimation(idle);
+    controller_->stop();  // starta i tid = 0
+
+    return idx;
+}
+void PresentationViewPanel::onPresetClicked() {
+    if (!controller_) return;
+
+    // Lägg inte till några rutor här – låt playAnimationById()
+    // skapa (eller återanvända) den riktiga idle-animationen.
+    if (sender() == btnRotate_) {
+        playAnimationById(IdleRotateId);
+    } else if (sender() == btnZoom_) {
+        playAnimationById(IdleZoomId);
+    } else if (sender() == btnShake_) {
+        playAnimationById(IdleShakeId);
+    }
+}
+
+
+
 void PresentationViewPanel::addRotatePreset() {
     if (!controller_ || !camera_) return;
-    auto& anim = controller_->getAnimation();
-    Seconds t0 = controller_->getCurrentTime(), t1 = t0 + Seconds{2};
+
+    // --- skapa en NY idle-animation ---
+    const int idx = makeIdleAnim("Idle Rotate");
+
+    Animation& anim = workspaceAnimations_.get(idx);
+
+    // --- bygg keyframes ---
+    Seconds t0{0}, t1{4};  // 4 s lång & loop-vänlig
     anim.addKeyframe(camera_, t0);
-    rotateCameraBy(glm::radians(90.f));
+
+    rotateCameraBy(glm::radians(90.f));  // 90° runt Y
     anim.addKeyframe(camera_, t1);
-    controller_->play();
+
+    // backa kameran så preset inte ”smittar” nästa gång
+    rotateCameraBy(glm::radians(-90.f));
 }
+
+
+void PresentationViewPanel::addZoomPreset() {
+    if (!controller_ || !camera_) return;
+
+    const int idx = makeIdleAnim("Idle Zoom");
+    Animation& anim = workspaceAnimations_.get(idx);
+
+    Seconds t0{0}, tMid{1.5}, tEnd{3};
+
+    const glm::vec3 from0 = camera_->getLookFrom();
+    const glm::vec3 to0 = camera_->getLookTo();
+    const glm::vec3 dir = glm::normalize(to0 - from0);
+
+    anim.addKeyframe(camera_, t0);  // start
+
+    camera_->setLookFrom(from0 + dir * 0.30f);  // zoom in ≈30 %
+    anim.addKeyframe(camera_, tMid);            // mitten
+
+    camera_->setLookFrom(from0);      // zoom tillbaka
+    anim.addKeyframe(camera_, tEnd);  // slut (→ loopar snyggt)
+}
+
+
+void PresentationViewPanel::addShakePreset() {
+    if (!controller_ || !camera_) return;
+
+    const int idx = makeIdleAnim("Idle Shake");
+    Animation& anim = workspaceAnimations_.get(idx);
+
+    const Seconds dt{0.4};
+    const int nSteps = 10;
+    const glm::vec3 startPos = camera_->getLookFrom();
+
+    for (int i = 0; i <= nSteps; ++i) {
+        float f = (i % 2 == 0 ? 1.f : -1.f);
+        camera_->setLookFrom(startPos + glm::vec3{f * 0.05f, 0.f, f * 0.05f});
+        anim.addKeyframe(camera_, dt * i);
+    }
+    camera_->setLookFrom(startPos);  // återställ
+}
+
+
+
+
 void PresentationViewPanel::rotateCameraBy(float a) {
     if (!camera_) return;
     camera_->setLookFrom(glm::vec3(glm::rotate(glm::mat4(1.f), a, {0, 1, 0}) *

@@ -60,8 +60,14 @@ private:
 
     /* ---------- presets ---------- */
     void onPresetClicked();
+    void createIdleRotate();
+    void createIdleZoom();
+    void createIdleShake();
     void addRotatePreset();
+    void addZoomPreset();
+    void addShakePreset();
     void rotateCameraBy(float angleRad);
+    int makeIdleAnim(const std::string& name);
 
     /* ---------- toolbar ---------- */
     void onToolbarClicked();
@@ -73,7 +79,11 @@ private:
 
 
     /* ------------------------------------------------------------------ */
-    static constexpr int StartId{-1};
+    static constexpr int StartId{-1};       ///< ”START”-boxen i tidslinjen
+    static constexpr int IdleRotateId{-2};  ///< genererad av   btnRotate_
+    static constexpr int IdleZoomId{-3};    ///< genererad av   btnZoom_
+    static constexpr int IdleShakeId{-4};   ///< genererad av   btnShake_
+
 
     WorkspaceAnimations& workspaceAnimations_;
     WorkspaceAnimations::OnChangedDispatcher::Handle onChangedHandle_;
@@ -90,7 +100,7 @@ private:
     QHBoxLayout* libraryLayout_{nullptr};
     // tidslinje
     QListWidget* timeline_{nullptr};
-
+    QWidget* libraryWidget_{nullptr};
 
     // script / presets / view-controls
          QTextEdit* scriptEdit_{nullptr};

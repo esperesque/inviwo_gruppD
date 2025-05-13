@@ -50,10 +50,13 @@
 #include <modules/animationqt/sequenceeditor/propertysequenceeditor.h>
 #include <modules/animationqt/widgets/controltrackwidgetqt.h>
 #include <modules/animationqt/widgets/propertytrackwidgetqt.h>
+#include <inviwo/core/common/inviwoapplication.h>  // <-- NY RAD
+
 
 #include <modules/animationqt/presentationviewpanel.h>  // Presentation-fönstret
 #include <modules/qtwidgets/inviwodockwidget.h>         // InviwoDockWidget
 #include <modules/qtwidgets/inviwoqtutils.h>
+#include <inviwo/core/network/processornetwork.h>
 
 #include <algorithm>
 #include <tuple>
@@ -216,6 +219,22 @@ AnimationQtModule::AnimationQtModule(InviwoApplication* app)
 
             // Include a reference to WorkspaceAnims when creating the presentation view panel
             auto* panel = new PresentationViewPanel(workspaceAnims, controller);
+
+            CameraProperty* camProp = nullptr;
+            if (auto* net = inviwo::InviwoApplication::getPtr()->getProcessorNetwork()) {
+                for (auto* proc : net->getProcessors()) {
+                    // gå igenom alla properties och leta upp första CameraProperty
+                    for (auto* prop : proc->getProperties()) {
+                        if (auto* cam = dynamic_cast<CameraProperty*>(prop)) {
+                            camProp = cam;
+                            break;
+                        }
+                    }
+                    if (camProp) break;  // hittade en – avsluta yttre loopen
+                }
+            }
+            if (camProp) panel->setCamera(camProp);
+
             dock->setWidget(panel);
             dock->resize(1280, 540);
 
