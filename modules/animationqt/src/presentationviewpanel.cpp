@@ -230,7 +230,13 @@ void PresentationViewPanel::setupUI() {
     speedSlider_->setRange(1, 100);
     speedSlider_->setValue(50);
     connect(speedSlider_, &QSlider::valueChanged, this,
-            [this](int v) { speedLabel_->setText(QString("Speed: %1%").arg(v)); });
+            [this](int v) { speedLabel_->setText(QString("Speed: %1%").arg(v));
+        if (controller_) {
+            const double baseFPS = 24.0;   // default FPS 
+            double multiplier = v / 50.0;  // 50 = 100% speed
+            controller_->framesPerSecond.set(baseFPS * multiplier);
+        }
+        });
     vLay->addWidget(speedLabel_);
     vLay->addWidget(speedSlider_);
     vLay->addStretch(1);
