@@ -113,7 +113,7 @@ AnimationController::AnimationController(Animation& animation, AnimationManager&
                0)
     , playModeLocal("playModeLocal",                    // identifier
                     "Apply to current animation only",  // display name
-                    false)     
+                    true)     
     , renderOptions("RenderOptions", "Render Animation")
     , renderWindowMode("RenderFirstLastTimeOption", "Render",
                        {{"FullTimeWindow", "All", 0}, {"UserTimeWindow", "Window", 1}}, 0)

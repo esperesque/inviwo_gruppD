@@ -337,29 +337,39 @@ void PresentationViewPanel::onTimelineDoubleClicked(QListWidgetItem* item) {
 void PresentationViewPanel::playAnimationById(int id) {
     if (!controller_) return;
 
-    switch (id) {
-        case StartId:
-            controller_->stop();
-            return;
-
-        case IdleRotateId:
-            addRotatePreset();  // skapar/uppdaterar idle-rotation
-            return;
-
-        case IdleZoomId:
-            addZoomPreset();  // (funktionen finns redan)
-            return;
-
-        case IdleShakeId:
-            addShakePreset();  // (funktionen finns redan)
-            return;
-
-        default:
-            break;  // fall through till ”riktiga” animationer
+    /* --- START-block --- */
+    if (id == StartId) {
+        controller_->stop();
+        return;
     }
 
+    /* --- Idle-presets ------------------------------------ */
+    if (id == IdleRotateId) {
+        addRotatePreset();
+        return;
+    }
+    if (id == IdleZoomId) {
+        addZoomPreset();
+        return;
+    }
+    if (id == IdleShakeId) {
+        addShakePreset();
+        return;
+    }
+
+    /* --- Vanliga (>=0) animationer -------------------------------- */
     if (id >= 0 && id < static_cast<int>(workspaceAnimations_.size())) {
-        controller_->setAnimation(workspaceAnimations_.get(id));
+
+        Animation& anim = workspaceAnimations_.get(id);
+        controller_->setAnimation(anim);
+
+        /* -- ställ in lokalt spelläge -- */
+        controller_->playModeLocal.set(true);
+
+        /* -- Idle-animationer loopar, andra körs en gång -- */
+        const bool isIdle = anim.getName().rfind("Idle ", 0) == 0;
+        controller_->playMode.set(isIdle ? PlaybackMode::Loop : PlaybackMode::Once);
+
         controller_->play();
     }
 }
@@ -526,21 +536,37 @@ void PresentationViewPanel::onPresetClicked() {
 void PresentationViewPanel::addRotatePreset() {
     if (!controller_ || !camera_) return;
 
-    // --- skapa en NY idle-animation ---
     const int idx = makeIdleAnim("Idle Rotate");
-
     Animation& anim = workspaceAnimations_.get(idx);
 
-    // --- bygg keyframes ---
-    Seconds t0{0}, t1{4};  // 4 s lång & loop-vänlig
-    anim.addKeyframe(camera_, t0);
+    // totalt 8 s → lugn hastighet
+    const Seconds dt{2.0};  // 2 s mellan varje segment
+    const int nSteps = 4;   // 4 segment ⇒ 4×90° = 360°
+    const float dAngle = glm::radians(90.f);
 
-    rotateCameraBy(glm::radians(90.f));  // 90° runt Y
-    anim.addKeyframe(camera_, t1);
+    // spara ursprungs-positionen så vi kan återställa GUI-värdet sedan
+    const glm::vec3 startFrom = camera_->getLookFrom();
 
-    // backa kameran så preset inte ”smittar” nästa gång
-    rotateCameraBy(glm::radians(-90.f));
+    // 0-ramen
+    anim.addKeyframe(camera_, Seconds{0});
+
+    // fyra 90°-steg: 0 s, 2 s, 4 s, 6 s, 8 s
+    for (int i = 1; i <= nSteps; ++i) {
+        rotateCameraBy(dAngle);             // +90° runt Y
+        anim.addKeyframe(camera_, dt * i);  // nästa keyframe
+    }
+
+    // återställ property-värdet i editorn
+    camera_->setLookFrom(startFrom);
+
+    // se till att den loopar
+    controller_->playModeLocal.set(true);
+    controller_->playMode.set(animation::PlaybackMode::Loop);
+    controller_->setAnimation(anim);
+    controller_->play();
 }
+
+
 
 
 void PresentationViewPanel::addZoomPreset() {

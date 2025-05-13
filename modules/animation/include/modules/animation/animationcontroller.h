@@ -147,7 +147,10 @@ public:
     DoubleMinMaxProperty playWindow;
     DoubleProperty framesPerSecond;
     OptionProperty<PlaybackMode> playMode;
-    BoolProperty playModeLocal;  ///< “Apply to current animation only”
+    BoolProperty playModeLocal{
+        "playModeLocal", "Apply to current animation only",
+        true  //  <-- var false, sätt till true
+    };
 
     CompositeProperty renderOptions;
     OptionPropertyInt renderWindowMode;
