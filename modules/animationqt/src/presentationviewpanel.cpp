@@ -1,6 +1,8 @@
 #include "modules/animationqt/presentationviewpanel.h"
 #include <modules/animation/datastructures/keyframesequence.h>   //  <-- NY!
 #include <modules/animation/datastructures/valuekeyframe.h>
+#include <inviwo/core/datastructures/camera/camera.h>  //  ← NYTT
+#include <inviwo/core/properties/cameraproperty.h>
 
 #include <QIcon>
 #include <QSize>
@@ -691,11 +693,11 @@ void PresentationViewPanel::createTransition() {
     updateTimelineHighlight();
 }
 
-/***** (B)  anropas när ↔-rutan skall spelas *****/
+/***** (B)  spelas när ↔-rutan ska köras *****/
 void PresentationViewPanel::buildRuntimeTransition() {
     if (!controller_ || !camera_) return;
 
-    /* ---------- 1)  hitta prev / next block ---------- */
+    /* ---------- 1) Hitta prev / next block ---------- */
     const int row = timeline_->currentRow();
     if (row <= 0) return;  // inget före
 
@@ -704,49 +706,67 @@ void PresentationViewPanel::buildRuntimeTransition() {
 
     int nextId = -1;
     for (int i = row + 1; i < timeline_->count(); ++i) {
-        int cand = timeline_->item(i)->data(Qt::UserRole).toInt();
+        const int cand = timeline_->item(i)->data(Qt::UserRole).toInt();
         if (cand >= 0) {
             nextId = cand;
             break;
         }
     }
 
-    Animation& prev = workspaceAnimations_.get(prevId);
+    Animation& prevAnim = workspaceAnimations_.get(prevId);
+    Animation* nextAnim = (nextId >= 0) ? &workspaceAnimations_.get(nextId) : nullptr;
 
-    /* ---------- 2) e-valuera SLUTET på föregående ---------- */
-    Seconds tPrevEnd = prev.getLastTime();
-    controller_->setAnimation(prev);
-    controller_->eval(controller_->getCurrentTime(), tPrevEnd);  // flytta nätet
-    // -> kamera-propertyn innehåller nu slutläget
+    /* ---------- 2) Spara aktuella kameran som START-pose ---------- */
+    /* --------- START- och ev. END-kameror --------- */
+    std::unique_ptr<Camera> camStart{camera_->get().clone()};
 
-    /* ---------- 3) e-valuera BÖRJAN på nästa (om det finns) ---------- */
-    bool haveNext = (nextId >= 0);
-    Animation* next = haveNext ? &workspaceAnimations_.get(nextId) : nullptr;
-    Seconds tNextBeg = haveNext ? next->getFirstTime() : Seconds{0};
+    // 2b) END    = första keyframen i nästa block (om det finns ett)
+    std::unique_ptr<Camera> camEnd;
+    if (nextAnim) {
+        // hämta tidpunkten för första keyframen
+        Seconds tNextBeg = nextAnim->getFirstTime();
 
-    /* ---------- 4) skapa/återanvänd temporär övergång ---------- */
-    static Animation* transAnim = nullptr;
-    if (!transAnim) {  // första gången
-        transAnim = &workspaceAnimations_.add("__pv_transition_tmp__");
-    }
-    transAnim->clear();
+        // *** Utvärdera nästa animation manuellt utan att ändra GUI-kameran ***
+        // 1)  Spara befintligt kameraläge
+        std::unique_ptr<Camera> backup{camera_->get().clone()};
 
-    Seconds t0{0}, t1{1.0};  // 1 s övergång
-
-    transAnim->addKeyframe(camera_, t0);  // första KF = nuvarande kameraläge
-
-    if (haveNext) {
-        controller_->setAnimation(*next);
+        // 2)  Evaluerar animationen i *tNextBeg* (använder controller-­helpern)
+        controller_->setAnimation(*nextAnim);
         controller_->eval(controller_->getCurrentTime(), tNextBeg);
-        transAnim->addKeyframe(camera_, t1);  // andra KF = början på nästa
+        camEnd.reset(camera_->get().clone());  // kopiera resultatet
+
+        // 3)  Återställ GUI-kameran till det sparade läget
+        camera_->setCamera(std::move(backup));
     }
 
-    /* ---------- 5) spela övergången ---------- */
-    controller_->setAnimation(*transAnim);
-    controller_->playModeLocal.set(true);           // påverkar bara denna
-    controller_->playMode.set(PlaybackMode::Once);  // spelas en gång
+    /* --------- temp-animation --------- */
+    static Animation* trans = nullptr;
+    if (!trans) trans = &workspaceAnimations_.add("__pv_transition_tmp__");
+    trans->clear();
+
+    Seconds t0{0}, t1{1.0};
+
+    // KF 0: nu-läge
+    camera_->setCamera(std::unique_ptr<Camera>(camStart->clone()));
+    trans->addKeyframe(camera_, t0);
+
+    // KF 1: nästa-läge (om det finns)
+    if (camEnd) {
+        camera_->setCamera(std::unique_ptr<Camera>(camEnd->clone()));
+        trans->addKeyframe(camera_, t1);
+
+        // återställ propertyn så GUI inte hoppar
+        camera_->setCamera(std::unique_ptr<Camera>(camStart->clone()));
+    }
+
+    /* --------- spela --------- */
+    controller_->setAnimation(*trans);
+    controller_->playModeLocal.set(true);
+    controller_->playMode.set(PlaybackMode::Once);
     controller_->play();
 }
+
+
 
 
 

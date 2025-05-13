@@ -79,6 +79,7 @@ private:
     void createTransition();
     void buildRuntimeTransition();
 
+
     /* ------------------------------------------------------------------ */
     static constexpr int StartId{-1};       ///< ”START”-boxen i tidslinjen
     static constexpr int IdleRotateId{-2};  ///< genererad av   btnRotate_
