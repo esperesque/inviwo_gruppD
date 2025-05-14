@@ -52,6 +52,7 @@
 #include <utility>      // for move
 #include <vector>       // for vector
 
+
 namespace inviwo {
 class Serializer;
 template <typename T>

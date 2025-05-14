@@ -19,6 +19,24 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <random>
 #include <memory>
+#include <inviwo/core/properties/property.h>
+#include <modules/animation/datastructures/propertytrack.h>   // BasePropertyTrack
+#include <algorithm>
+#include <vector>
+#include <type_traits>  // om du inte redan har
+#include <modules/animation/datastructures/animationstate.h>
+
+
+
+namespace {
+inline inviwo::Property* getTrackProperty(inviwo::animation::Track* t) {
+    if (auto* bt = dynamic_cast<inviwo::animation::BasePropertyTrack*>(t)) {
+        return const_cast<inviwo::Property*>(bt->getProperty());
+    }
+    return nullptr;  // t.ex. CameraTrack
+}
+}  // anonymt namespace
+
 
 namespace inviwo {
 namespace animation {
@@ -331,9 +349,26 @@ void PresentationViewPanel::updateTimelineHighlight() {
 
 /* ------------------------------------------------------------------------- */
 void PresentationViewPanel::updatedisplay() {
-    if (controller_)
+    if (controller_) {
         timeLabel_->setText(
-            QString("Current Time: %1 s").arg(controller_->getCurrentTime().count(), 0, 'f', 2));
+            QString("Current Time: %1 s") .arg(controller_->getCurrentTime().count(), 0, 'f', 2));
+           // --- klar med transition? starta nästa automatiskt ---
+        if (pendingNextId_ >= 0 && controller_->getState() != animation::AnimationState::Playing) {
+              // markera motsvarande ruta i tidslinjen
+                for (int i = 0; i < timeline_->count(); ++i) {
+                if (timeline_->item(i)->data(Qt::UserRole).toInt() == pendingNextId_) {
+                    timeline_->setCurrentRow(i);
+                    break;
+                    
+                }
+                
+            }
+            playAnimationById(pendingNextId_);
+            pendingNextId_ = -1;
+            
+        }
+        
+    }
 }
 
 /* ------------------------------------------------------------------------- */
@@ -695,11 +730,11 @@ void PresentationViewPanel::createTransition() {
 
 /***** (B)  spelas när ↔-rutan ska köras *****/
 void PresentationViewPanel::buildRuntimeTransition() {
-    if (!controller_ || !camera_) return;
+    if (!controller_) return;
 
-    /* ---------- 1) Hitta prev / next block ---------- */
+    /* ---------- 1) Hitta prev / next ”riktiga” animationer ---------- */
     const int row = timeline_->currentRow();
-    if (row <= 0) return;  // inget före
+    if (row <= 0) return;
 
     const int prevId = timeline_->item(row - 1)->data(Qt::UserRole).toInt();
     if (prevId < 0) return;  // preset/dummy
@@ -716,55 +751,60 @@ void PresentationViewPanel::buildRuntimeTransition() {
     Animation& prevAnim = workspaceAnimations_.get(prevId);
     Animation* nextAnim = (nextId >= 0) ? &workspaceAnimations_.get(nextId) : nullptr;
 
-    /* ---------- 2) Spara aktuella kameran som START-pose ---------- */
-    /* --------- START- och ev. END-kameror --------- */
-    std::unique_ptr<Camera> camStart{camera_->get().clone()};
+    const Seconds tPrevEnd = prevAnim.getLastTime();
+    const Seconds tNextBeg = nextAnim ? nextAnim->getFirstTime() : Seconds{0};
 
-    // 2b) END    = första keyframen i nästa block (om det finns ett)
-    std::unique_ptr<Camera> camEnd;
-    if (nextAnim) {
-        // hämta tidpunkten för första keyframen
-        Seconds tNextBeg = nextAnim->getFirstTime();
-
-        // *** Utvärdera nästa animation manuellt utan att ändra GUI-kameran ***
-        // 1)  Spara befintligt kameraläge
-        std::unique_ptr<Camera> backup{camera_->get().clone()};
-
-        // 2)  Evaluerar animationen i *tNextBeg* (använder controller-­helpern)
-        controller_->setAnimation(*nextAnim);
-        controller_->eval(controller_->getCurrentTime(), tNextBeg);
-        camEnd.reset(camera_->get().clone());  // kopiera resultatet
-
-        // 3)  Återställ GUI-kameran till det sparade läget
-        camera_->setCamera(std::move(backup));
-    }
-
-    /* --------- temp-animation --------- */
-    static Animation* trans = nullptr;
+    /* ---------- 2) temporär cross-fade-animation ---------- */
+    static Animation* trans = nullptr;  // återanvänd en och samma
     if (!trans) trans = &workspaceAnimations_.add("__pv_transition_tmp__");
     trans->clear();
 
-    Seconds t0{0}, t1{1.0};
+    const Seconds t0{0}, t1{1.0};  // TODO: gör ställbart
 
-    // KF 0: nu-läge
-    camera_->setCamera(std::unique_ptr<Camera>(camStart->clone()));
-    trans->addKeyframe(camera_, t0);
+    /* ---------- 3) samla alla Property* som finns i någon av animationerna ---------- */
+    std::vector<::inviwo::Property*> props;  // fullständigt kvalificerat namn
 
-    // KF 1: nästa-läge (om det finns)
-    if (camEnd) {
-        camera_->setCamera(std::unique_ptr<Camera>(camEnd->clone()));
-        trans->addKeyframe(camera_, t1);
 
-        // återställ propertyn så GUI inte hoppar
-        camera_->setCamera(std::unique_ptr<Camera>(camStart->clone()));
+    auto collect = [&](Animation& a) {
+        for (inviwo::animation::Track& trk : a) {  // trk är en referens, inte unique_ptr
+            if (auto* p = getTrackProperty(&trk)) props.push_back(p);
+        }
+    };
+
+    collect(prevAnim);
+    if (nextAnim) collect(*nextAnim);
+
+    std::sort(props.begin(), props.end());
+    props.erase(std::unique(props.begin(), props.end()), props.end());  // unika pekare
+
+    /* ---------- 4) lägg två keyframes per property ---------- */
+    for (Property* p : props) {
+        // startvärde = slutet på prevAnim
+        controller_->setAnimation(prevAnim);
+        controller_->eval(controller_->getCurrentTime(), tPrevEnd);
+        trans->addKeyframe(p, t0);
+
+        // slutvärde = början på nextAnim (om den finns)
+        if (nextAnim) {
+            controller_->setAnimation(*nextAnim);
+            controller_->eval(controller_->getCurrentTime(), tNextBeg);
+            trans->addKeyframe(p, t1);
+        }
     }
 
-    /* --------- spela --------- */
+    /* ---------- 5) återställ scenen till prevAnim:s sista bild ---------- */
+    controller_->setAnimation(prevAnim);
+    controller_->eval(controller_->getCurrentTime(), tPrevEnd);
+
+    /* ---------- 6) spela cross-faden ---------- */
     controller_->setAnimation(*trans);
     controller_->playModeLocal.set(true);
     controller_->playMode.set(PlaybackMode::Once);
     controller_->play();
+    pendingNextId_ = nextAnim ? nextId : -1;
 }
+
+
 
 
 

@@ -127,6 +127,7 @@ private:
 
     /* ---------- fullscreen-state ---------- */
     QSize previousWindowSize;
+    int pendingNextId_{-1};
 };
 
 }  // namespace animation
