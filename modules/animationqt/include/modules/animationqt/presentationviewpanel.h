@@ -47,7 +47,7 @@ private:
     void updateTimelineHighlight();
     void onLibraryButtonClicked(int id);
     void onTimelineDoubleClicked(QListWidgetItem* item);
-
+    void captureVisibleCanvasImages(QListWidgetItem* it);
     /* ---------- spel / navigation ---------- */
     void playAnimationById(int id);
     void jumpRelative(int delta);

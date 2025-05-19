@@ -25,8 +25,9 @@
 #include <vector>
 #include <type_traits>  // om du inte redan har
 #include <modules/animation/datastructures/animationstate.h>
-
-
+#include <modules/qtwidgets/inviwoqtutils.h>  // Include location for getCanvasImages
+#include <inviwo/core/network/processornetwork.h> // For ProcessorNetwork
+#include <inviwo/core/common/inviwoapplication.h>
 
 namespace {
 inline inviwo::Property* getTrackProperty(inviwo::animation::Track* t) {
@@ -297,6 +298,7 @@ void PresentationViewPanel::setupUI() {
     main->addLayout(threeCols);
     main->addWidget(timeLabel_);
     main->addLayout(bottom);
+
 }
 
 /* ------------------------------------------------------------------------- */
@@ -378,8 +380,9 @@ void PresentationViewPanel::onLibraryButtonClicked(int id) {
                                    timeline_);
     it->setData(Qt::UserRole, id);
     it->setSizeHint(QSize(100, 50));
-    timeline_->setCurrentItem(it);
     updateTimelineHighlight();
+    QTimer::singleShot(100, this, [this, it]() { captureVisibleCanvasImages(it); });
+    timeline_->setCurrentItem(it);
 }
 
 void PresentationViewPanel::onTimelineDoubleClicked(QListWidgetItem* item) {
@@ -807,7 +810,21 @@ void PresentationViewPanel::buildRuntimeTransition() {
 
 
 
+void PresentationViewPanel::captureVisibleCanvasImages(QListWidgetItem* it) {
+    auto* app = InviwoApplication::getPtr();
+    auto* network = app->getProcessorNetwork();
 
+    auto images = utilqt::getCanvasImages(network, false);
+
+    if (!images.empty()) {
+        const auto& [name, image] = images.back();  // Bara sista bilden
+        QPixmap pixmap =
+            QPixmap::fromImage(image).scaled(64, 64, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+        
+        it->setIcon(QIcon(pixmap));
+        
+    }
+}
 
 
 
