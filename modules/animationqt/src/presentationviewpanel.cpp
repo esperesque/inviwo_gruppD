@@ -258,8 +258,27 @@ void PresentationViewPanel::setupUI() {
             controller_->framesPerSecond.set(baseFPS * multiplier);
         }
         });
+    // ----- Transition Duration UI -----
+    transitionDurationLabel_ =
+        new QLabel(QString("Transition Duration: %1 s").arg(transitionDuration_, 0, 'f', 2), this);
+
+    transitionDurationSlider_ = new QSlider(Qt::Horizontal, this);
+    transitionDurationSlider_->setMinimum(100);   // 0.1 seconds
+    transitionDurationSlider_->setMaximum(5000);  // 5.0 seconds
+    transitionDurationSlider_->setValue(static_cast<int>(transitionDuration_ * 1000));
+    transitionDurationSlider_->setTickInterval(100);
+    transitionDurationSlider_->setTickPosition(QSlider::TicksBelow);
+
+    // Update label and internal value when user moves slider
+    connect(transitionDurationSlider_, &QSlider::valueChanged, this, [this](int value) {
+        transitionDuration_ = value / 1000.0;  // convert to seconds
+        transitionDurationLabel_->setText(
+            QString("Transition Duration: %1 s").arg(transitionDuration_, 0, 'f', 2));
+    });
     vLay->addWidget(speedLabel_);
     vLay->addWidget(speedSlider_);
+    vLay->addWidget(transitionDurationLabel_);
+    vLay->addWidget(transitionDurationSlider_);
     vLay->addStretch(1);
 
     auto* threeCols = new QHBoxLayout;
@@ -762,8 +781,9 @@ void PresentationViewPanel::buildRuntimeTransition() {
     if (!trans) trans = &workspaceAnimations_.add("__pv_transition_tmp__");
     trans->clear();
 
-    const Seconds t0{0}, t1{1.0};  // TODO: gör ställbart
-
+   // const Seconds t0{0}, t1{1.0};  // TODO: gör ställbart
+    const Seconds t0{0};
+    const Seconds t1{transitionDuration_};
     /* ---------- 3) samla alla Property* som finns i någon av animationerna ---------- */
     std::vector<::inviwo::Property*> props;  // fullständigt kvalificerat namn
 

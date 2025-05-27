@@ -117,6 +117,10 @@ private:
 
     QSlider* speedSlider_{nullptr};
     QLabel* speedLabel_{nullptr};
+    // Transition duration control
+    double transitionDuration_{1.0};              // Default duration
+    QSlider* transitionDurationSlider_{nullptr};  // The slider UI
+    QLabel* transitionDurationLabel_{nullptr};    // Label showing the current duration
     // play/pause/next
     QPushButton *playButton_{nullptr}, *pauseButton_{nullptr}, *nextButton_{nullptr};
     // tid
