@@ -35,12 +35,12 @@ public:
 
     void setController(AnimationController* controller);
     void setCamera(CameraProperty* camera);
+ 
 
 private:
     /* ---------- bygg UI ---------- */
     void setupUI();
     void updatedisplay();
-
     /* ---------- bibliotek / tidslinje ---------- */
     void ensureStartItem();
     void updateAnimationLibrary();
@@ -68,7 +68,12 @@ private:
     void addShakePreset();
     void rotateCameraBy(float angleRad);
     int makeIdleAnim(const std::string& name);
-
+    void startIdleCameraRotate();
+    void stopIdleCameraRotate();
+    void startIdleZoom();
+    void stopIdleZoom();
+    void startIdleShake();
+    void stopIdleShake();
     /* ---------- toolbar ---------- */
     void onToolbarClicked();
     void toggleFullscreen();
@@ -91,9 +96,22 @@ private:
     WorkspaceAnimations::OnChangedDispatcher::Handle onChangedHandle_;
     AnimationController* controller_{nullptr};
     CameraProperty* camera_{nullptr};
-
     QTimer uiTimer_;
+    QTimer cameraRotateTimer_;
+    QTimer* idleZoomTimer_ = nullptr;
+    QTimer* idleShakeTimer_ = nullptr;
+    float currentAngle_ = 0.0f;
+    QToolButton* btnIdleRotate_ = nullptr;
+    bool idleRotateActive_ = false;
+    // Save state for consistent rotation
+    glm::vec3 idleCenter_;
+    glm::vec3 idleUp_;
+    glm::vec3 idleInitialFrom_;
+    QToolButton* btnIdleZoom_ = nullptr;
+    QToolButton* btnIdleShake_ = nullptr;
 
+    bool idleZoomActive_ = false;
+    bool idleShakeActive_ = false;
     /* ---------- UI-element ---------- */
     // toolbar-knappar
     QToolButton *tbBreak_, *tbAutoplay_, *tbExit_, *tbFullscreen_, *tbRestart_, *tbDelete_,

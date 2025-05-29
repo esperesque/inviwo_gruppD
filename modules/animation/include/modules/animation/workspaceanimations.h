@@ -146,6 +146,7 @@ public:
     const_iterator find(const Animation* anim) const;
     iterator find(const Animation* anim);
 
+    
     OnChangedDispatcher onChanged_;  // Fired when animations are added/removed
 
 private:

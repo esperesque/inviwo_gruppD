@@ -276,6 +276,8 @@ void WorkspaceAnimations::onKeyframeSequenceSelectionChanged(KeyframeSequence*) 
 void WorkspaceAnimations::onKeyframeTimeChanged(Keyframe*, Seconds) { onAnyChange(); }
 void WorkspaceAnimations::onKeyframeSelectionChanged(Keyframe*) { onAnyChange(); }
 
+
+
 }  // namespace animation
 
 }  // namespace inviwo

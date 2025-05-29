@@ -196,7 +196,7 @@ void AnimationEditorQt::dragMoveEvent(QGraphicsSceneDragDropEvent* event) {
         dropIndicatorLine->setVisible(true);
     }
 
-    // Indicate insertion mode: keyframe or keyframe sequence.
+   // Indicate insertion mode: keyframe or keyframe sequence.
     showText_((event->modifiers() & Qt::ControlModifier)
                   ? "Insert new keyframe sequence (Alt for non-snapping time)"
                   : "Insert new keyframe (Ctrl for sequence, Alt for non-snapping time)",
@@ -204,6 +204,7 @@ void AnimationEditorQt::dragMoveEvent(QGraphicsSceneDragDropEvent* event) {
 
     event->accept();
 }
+
 
 void AnimationEditorQt::dropEvent(QGraphicsSceneDragDropEvent* event) {
 
@@ -225,8 +226,7 @@ void AnimationEditorQt::dropEvent(QGraphicsSceneDragDropEvent* event) {
             controller_.getAnimation().addKeyframeSequence(property, Seconds(time));
         } else {
             controller_.getAnimation().addKeyframe(property, Seconds(time));
-        }
-
+        }       
         event->acceptProposedAction();
     }
 }
@@ -239,9 +239,10 @@ void AnimationEditorQt::updateSceneRect() {
         static_cast<double>(controller_.getAnimation().size() * trackHeight));
 }
 
-void AnimationEditorQt::onFirstMoved() { updateSceneRect(); }
+void AnimationEditorQt::onFirstMoved() {updateSceneRect();}
 
-void AnimationEditorQt::onLastMoved() { updateSceneRect(); }
+void AnimationEditorQt::onLastMoved() {updateSceneRect(); }
+
 
 }  // namespace animation
 

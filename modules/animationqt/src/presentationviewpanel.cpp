@@ -3,7 +3,7 @@
 #include <modules/animation/datastructures/valuekeyframe.h>
 #include <inviwo/core/datastructures/camera/camera.h>  //  ← NYTT
 #include <inviwo/core/properties/cameraproperty.h>
-
+#include <glm/gtx/rotate_vector.hpp>  // Required for glm::rotate
 #include <QIcon>
 #include <QSize>
 #include <QGroupBox>
@@ -54,9 +54,11 @@ PresentationViewPanel::PresentationViewPanel(WorkspaceAnimations& animations,
 
     onChangedHandle_ =
         animations.onChanged_.add([this](size_t, Animation&) { updateAnimationLibrary(); });
+  
 }
 
 /* ------------------------------------------------------------------------- */
+
 void PresentationViewPanel::setupUI() {
 
     /* ---------- Toolbar ---------- */
@@ -258,6 +260,55 @@ void PresentationViewPanel::setupUI() {
             controller_->framesPerSecond.set(baseFPS * multiplier);
         }
         });
+
+    btnIdleRotate_ = new QToolButton;
+    btnIdleRotate_->setText("Idle Rotate");
+    btnIdleRotate_->setCheckable(true);
+    btnIdleRotate_->setToolTip("Toggle continuous camera rotation");
+    btnIdleRotate_->setIcon(QIcon(":/animation/icons/rotate-animation.svg"));
+    btnIdleRotate_->setIconSize(QSize(24, 24));
+    btnIdleRotate_->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+
+    connect(btnIdleRotate_, &QToolButton::toggled, this, [this](bool checked) {
+        idleRotateActive_ = checked;
+        if (checked) {
+            startIdleCameraRotate();
+        } else {
+            stopIdleCameraRotate();
+        }
+    });
+
+    btnIdleZoom_ = new QToolButton;
+    btnIdleZoom_->setText("Idle Zoom");
+    btnIdleZoom_->setCheckable(true);
+    btnIdleZoom_->setToolTip("Toggle continuous camera zoom");
+    btnIdleZoom_->setIcon(QIcon(":/animation/icons/zoom-animation.svg"));
+    btnIdleZoom_->setIconSize(QSize(24, 24));
+    btnIdleZoom_->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+    connect(btnIdleZoom_, &QToolButton::toggled, this, [this](bool checked) {
+        idleZoomActive_ = checked;
+        if (checked) {
+            startIdleZoom();
+        } else {
+            stopIdleZoom();
+        }
+    });
+
+    btnIdleShake_ = new QToolButton;
+    btnIdleShake_->setText("Idle Shake");
+    btnIdleShake_->setCheckable(true);
+    btnIdleShake_->setToolTip("Toggle continuous camera shake");
+    btnIdleShake_->setIcon(QIcon(":/animation/icons/shakey-animation.svg"));
+    btnIdleShake_->setIconSize(QSize(24, 24));
+    btnIdleShake_->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+    connect(btnIdleShake_, &QToolButton::toggled, this, [this](bool checked) {
+        idleShakeActive_ = checked;
+        if (checked) {
+            startIdleShake();
+        } else {
+            stopIdleShake();
+        }
+    });
     // ----- Transition Duration UI -----
     transitionDurationLabel_ =
         new QLabel(QString("Transition Duration: %1 s").arg(transitionDuration_, 0, 'f', 2), this);
@@ -279,6 +330,9 @@ void PresentationViewPanel::setupUI() {
     vLay->addWidget(speedSlider_);
     vLay->addWidget(transitionDurationLabel_);
     vLay->addWidget(transitionDurationSlider_);
+    vLay->addWidget(btnIdleRotate_);
+    vLay->addWidget(btnIdleZoom_);
+    vLay->addWidget(btnIdleShake_);
     vLay->addStretch(1);
 
     auto* threeCols = new QHBoxLayout;
@@ -334,6 +388,7 @@ void PresentationViewPanel::ensureStartItem() {
 }
 
 void PresentationViewPanel::updateAnimationLibrary() {
+   
     QLayoutItem* child = nullptr;
     while ((child = libraryLayout_->takeAt(0))) {
         if (auto* w = child->widget()) {  // ❶ frigör själva knappen
@@ -437,11 +492,11 @@ void PresentationViewPanel::playAnimationById(int id) {
         buildRuntimeTransition();
         return;
     }
-
     /* ---------- VANLIGA ANIMATIONER (index ≥ 0) ---------- */
     if (id >= 0 && id < static_cast<int>(workspaceAnimations_.size())) {
 
         Animation& anim = workspaceAnimations_.get(id);
+
         controller_->setAnimation(anim);
 
         /* – lokalt spelläge – */
@@ -482,7 +537,7 @@ void PresentationViewPanel::clearTimelineBoxes() {
 }
 
 /* ---------- ↺ Reset allt ---------- */
-void PresentationViewPanel::restartPresentation() {
+void PresentationViewPanel::restartPresentation() {  
     if (!controller_) return;
 
     std::unordered_set<int> done;
@@ -497,6 +552,7 @@ void PresentationViewPanel::restartPresentation() {
     ensureStartItem();
     playAnimationById(StartId);
     updatedisplay();
+
 }
 
 /* ------------------------------------------------------------------------- */
@@ -518,6 +574,7 @@ void PresentationViewPanel::createIdleRotate() {
 
     // 2) Två keyframes (0 s och 2 s)
     Seconds t0{0}, t1{2};
+   
     anim.addKeyframe(camera_, t0);
 
     // Rotera 90° runt Y-axeln med bibehållet avstånd
@@ -534,6 +591,7 @@ void PresentationViewPanel::createIdleRotate() {
     // Återställ property-värdet
     camera_->setLookFrom(from);
 
+   
     // 3) Lägg blocket sist i tidslinjen
     onLibraryButtonClicked(static_cast<int>(workspaceAnimations_.size() - 1));
 }
@@ -553,6 +611,7 @@ void PresentationViewPanel::createIdleZoom() {
     camera_->setLookFrom(from);  // tillbaka
     anim.addKeyframe(camera_, t2);
 
+    
     onLibraryButtonClicked(static_cast<int>(workspaceAnimations_.size() - 1));
 }
 
@@ -578,6 +637,7 @@ void PresentationViewPanel::createIdleShake() {
     camera_->setLookFrom(base);
     anim.addKeyframe(camera_, t4);
 
+   
     onLibraryButtonClicked(static_cast<int>(workspaceAnimations_.size() - 1));
 }
 
@@ -690,7 +750,6 @@ void PresentationViewPanel::addShakePreset() {
     }
     camera_->setLookFrom(startPos);  // återställ
 }
-
 
 
 
@@ -847,13 +906,109 @@ void PresentationViewPanel::captureVisibleCanvasImages(QListWidgetItem* it) {
 }
 
 
+void PresentationViewPanel::startIdleCameraRotate() {
+    if (!camera_) return;
 
+    stopIdleCameraRotate();  // stop any existing timer
 
+    const float dAngle = glm::radians(1.0f);  // 1 degree per frame
+    const int intervalMs = 16;                // 60 fps
 
+    currentAngle_ = 0.0f;
+
+    idleCenter_ = camera_->getLookTo();
+    idleUp_ = camera_->getLookUp();
+    idleInitialFrom_ = camera_->getLookFrom();
+
+    glm::vec3 direction = idleInitialFrom_ - idleCenter_;
+
+    cameraRotateTimer_.setInterval(intervalMs);
+    cameraRotateTimer_.start();
+
+    QObject::connect(&cameraRotateTimer_, &QTimer::timeout, this, [this, direction]() mutable {
+        currentAngle_ += glm::radians(1.0f);
+
+        glm::mat4 rotation = glm::rotate(glm::mat4(1.0f), currentAngle_, idleUp_);
+        glm::vec3 rotatedFrom = glm::vec3(rotation * glm::vec4(direction, 0.0f)) + idleCenter_;
+
+        camera_->setLookFrom(rotatedFrom);
+    });
+}
+
+void PresentationViewPanel::stopIdleCameraRotate() {
+    if (cameraRotateTimer_.isActive()) {
+        cameraRotateTimer_.stop();
+    }
+}
+
+void PresentationViewPanel::startIdleZoom() {
+    if (!camera_) return;
+
+    stopIdleZoom();  // ensure only one timer
+
+    glm::vec3 from = camera_->getLookFrom();
+    glm::vec3 to = camera_->getLookTo();
+    glm::vec3 dir = glm::normalize(to - from);
+    float zoomSpeed = 0.01f;
+    bool zoomingIn = true;
+
+    idleZoomTimer_ = new QTimer(this);
+    connect(idleZoomTimer_, &QTimer::timeout, this, [=]() mutable {
+        glm::vec3 current = camera_->getLookFrom();
+        float offset = zoomingIn ? zoomSpeed : -zoomSpeed;
+        current += dir * offset;
+        camera_->setLookFrom(current);
+
+        float distance = glm::length(current - to);
+        if (distance < 1.0f) zoomingIn = false;
+        if (distance > 3.0f) zoomingIn = true;
+
+        camera_->propertyModified();  // trigger update
+    });
+
+    idleZoomTimer_->start(33);  // ≈30 FPS
+}
+
+void PresentationViewPanel::stopIdleZoom() {
+    if (idleZoomTimer_) {
+        idleZoomTimer_->stop();
+        idleZoomTimer_->deleteLater();
+        idleZoomTimer_ = nullptr;
+    }
+}
+
+void PresentationViewPanel::startIdleShake() {
+    if (!camera_) return;
+
+    stopIdleShake();  // just in case
+
+    const glm::vec3 originalPos = camera_->getLookFrom();
+    bool flip = true;
+
+    idleShakeTimer_ = new QTimer(this);
+    connect(idleShakeTimer_, &QTimer::timeout, this, [=]() mutable {
+        glm::vec3 offset = flip ? glm::vec3{0.05f, 0.f, -0.05f} : glm::vec3{-0.05f, 0.f, 0.05f};
+        camera_->setLookFrom(originalPos + offset);
+        camera_->propertyModified();
+        flip = !flip;
+    });
+
+    idleShakeTimer_->start(100);  // Shake every 100 ms
+}
+
+void PresentationViewPanel::stopIdleShake() {
+    if (idleShakeTimer_) {
+        idleShakeTimer_->stop();
+        idleShakeTimer_->deleteLater();
+        idleShakeTimer_ = nullptr;
+    }
+}
 
 /* ------------------------------------------------------------------------- */
 void PresentationViewPanel::setController(AnimationController* c) { controller_ = c; }
+
 void PresentationViewPanel::setCamera(CameraProperty* cam) { camera_ = cam; }
+
 
 }  // namespace animation
 }  // namespace inviwo
