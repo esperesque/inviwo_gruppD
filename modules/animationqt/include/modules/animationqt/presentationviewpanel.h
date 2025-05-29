@@ -57,6 +57,8 @@ private:
     void playanimation();
     void pauseanimation();
     void nextanimation();
+    void toggleAutoRotate();
+    void autoRotate();
 
     /* ---------- presets ---------- */
     void onPresetClicked();
@@ -97,6 +99,7 @@ private:
     AnimationController* controller_{nullptr};
     CameraProperty* camera_{nullptr};
     QTimer uiTimer_;
+    QTimer autoRotateTimer_;
     QTimer cameraRotateTimer_;
     QTimer* idleZoomTimer_ = nullptr;
     QTimer* idleShakeTimer_ = nullptr;
@@ -110,12 +113,13 @@ private:
     QToolButton* btnIdleZoom_ = nullptr;
     QToolButton* btnIdleShake_ = nullptr;
 
+    bool autoRotateActive = false; // If active, enables idle rotate when an animation finishes
     bool idleZoomActive_ = false;
     bool idleShakeActive_ = false;
     /* ---------- UI-element ---------- */
     // toolbar-knappar
     QToolButton *tbBreak_, *tbAutoplay_, *tbExit_, *tbFullscreen_, *tbRestart_, *tbDelete_,
-        *tbClear_, *tbTransition_;  // ← NY!
+        *tbClear_, *tbTransition_, *tbAutoRotate_;
     // bibliotek
     QHBoxLayout* libraryLayout_{nullptr};
     // tidslinje

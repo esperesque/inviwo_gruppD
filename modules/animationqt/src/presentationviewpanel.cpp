@@ -49,6 +49,10 @@ PresentationViewPanel::PresentationViewPanel(WorkspaceAnimations& animations,
 
     setupUI();
 
+    // Setup timers
+    autoRotateTimer_.start(100);
+    connect(&autoRotateTimer_, &QTimer::timeout, this, &PresentationViewPanel::autoRotate);
+
     connect(&uiTimer_, &QTimer::timeout, this, &PresentationViewPanel::updatedisplay);
     uiTimer_.start(100);
 
@@ -121,6 +125,12 @@ void PresentationViewPanel::setupUI() {
     tbTransition_->setToolButtonStyle(Qt::ToolButtonIconOnly);
     tbTransition_->setToolTip("Insert transition (cross-fade)");
 
+    // auto-rotate on/off
+    tbAutoRotate_ = makeTool("", &PresentationViewPanel::toggleAutoRotate);
+    tbAutoRotate_->setIcon(QIcon(":/animation/icons/arrow_direction_refresh_repeat_restart_icon_128.svg"));
+    tbAutoRotate_->setIconSize(QSize(24, 24));
+    tbAutoRotate_->setToolButtonStyle(Qt::ToolButtonIconOnly);
+    tbAutoRotate_->setToolTip("Enable auto-rotate");
 
     // fullscreen
     tbFullscreen_ = makeTool("", &PresentationViewPanel::toggleFullscreen);
@@ -423,6 +433,32 @@ void PresentationViewPanel::updateTimelineHighlight() {
         cur->setBackground(palette().brush(QPalette::Highlight));
 }
 
+void PresentationViewPanel::toggleAutoRotate() {
+    if (autoRotateActive) {
+        stopIdleCameraRotate();
+    }
+    autoRotateActive = !autoRotateActive;
+}
+
+// Periodically checks if the current animation has finished playing, and if so, turns on idle rotate
+void PresentationViewPanel::autoRotate() {
+    // Check if auto-rotate mode is enabled
+    if (!autoRotateActive) {
+        return;
+    }
+
+    // Check if an animation is playing
+    if (controller_->getState() != animation::AnimationState::Playing) {
+        // If not, start auto-rotating
+        if (!idleRotateActive_) {
+            startIdleCameraRotate();
+        }
+    }
+    else {
+        stopIdleCameraRotate();
+    }
+}
+
 /* ------------------------------------------------------------------------- */
 void PresentationViewPanel::updatedisplay() {
     if (controller_) {
@@ -489,7 +525,9 @@ void PresentationViewPanel::playAnimationById(int id) {
 
     /* ---------- TRANSITION-BLOCK ---------- */
     if (id == TransitionDummyId) {
-        buildRuntimeTransition();
+        // Verkar vara en bugg där detta körs även om transition blocks inte används
+        // buildRuntimeTransition skapar vita rutor om animationeditorn öppnats
+        //buildRuntimeTransition(); 
         return;
     }
     /* ---------- VANLIGA ANIMATIONER (index ≥ 0) ---------- */
@@ -910,6 +948,7 @@ void PresentationViewPanel::startIdleCameraRotate() {
     if (!camera_) return;
 
     stopIdleCameraRotate();  // stop any existing timer
+    idleRotateActive_ = true;
 
     const float dAngle = glm::radians(1.0f);  // 1 degree per frame
     const int intervalMs = 16;                // 60 fps
@@ -939,6 +978,7 @@ void PresentationViewPanel::stopIdleCameraRotate() {
     if (cameraRotateTimer_.isActive()) {
         cameraRotateTimer_.stop();
     }
+    idleRotateActive_ = false;
 }
 
 void PresentationViewPanel::startIdleZoom() {
