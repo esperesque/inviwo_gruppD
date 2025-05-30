@@ -527,7 +527,9 @@ void PresentationViewPanel::playAnimationById(int id) {
     if (id == TransitionDummyId) {
         // Verkar vara en bugg där detta körs även om transition blocks inte används
         // buildRuntimeTransition skapar vita rutor om animationeditorn öppnats
-        //buildRuntimeTransition(); 
+        //buildRuntimeTransition();
+        // Övergång som påverkar kameran bara som inte gör keyframes
+        buildRuntimeCameraTransition();
         return;
     }
     /* ---------- VANLIGA ANIMATIONER (index ≥ 0) ---------- */
@@ -925,6 +927,79 @@ void PresentationViewPanel::buildRuntimeTransition() {
 }
 
 
+void PresentationViewPanel::buildRuntimeCameraTransition() {
+    if (!controller_ || !camera_) return;
+
+    const int row = timeline_->currentRow();
+    if (row <= 0) return;
+
+    const int prevId = timeline_->item(row - 1)->data(Qt::UserRole).toInt();
+    if (prevId < 0) return;
+
+    int nextId = -1;
+    for (int i = row + 1; i < timeline_->count(); ++i) {
+        const int cand = timeline_->item(i)->data(Qt::UserRole).toInt();
+        if (cand >= 0) {
+            nextId = cand;
+            break;
+        }
+    }
+
+    Animation& prevAnim = workspaceAnimations_.get(prevId);
+    Animation* nextAnim = (nextId >= 0) ? &workspaceAnimations_.get(nextId) : nullptr;
+
+    const Seconds tPrevEnd = prevAnim.getLastTime();
+    const Seconds tNextBeg = nextAnim ? nextAnim->getFirstTime() : Seconds{0};
+
+    controller_->setAnimation(prevAnim);
+    controller_->eval(controller_->getCurrentTime(), tPrevEnd);
+    const vec3 lookFromStart = camera_->getLookFrom();
+    const vec3 lookToStart = camera_->getLookTo();
+
+    vec3 lookFromEnd = lookFromStart;
+    vec3 lookToEnd = lookToStart;
+    if (nextAnim) {
+        controller_->setAnimation(*nextAnim);
+        controller_->eval(controller_->getCurrentTime(), tNextBeg);
+        lookFromEnd = camera_->getLookFrom();
+        lookToEnd = camera_->getLookTo();
+    }
+
+    controller_->setAnimation(prevAnim);
+    controller_->eval(controller_->getCurrentTime(), tPrevEnd);
+
+    const float durationSec = static_cast<float>(transitionDuration_);
+    const auto startTime = std::chrono::steady_clock::now();
+
+    QTimer* timer = new QTimer(this);  // raderas med parent
+    timer->setInterval(16);            // ~60 FPS (rounded)
+
+    connect(timer, &QTimer::timeout, this, [=]() mutable {
+        using namespace std::chrono;
+        auto now = steady_clock::now();
+        float elapsed = duration<float>(now - startTime).count();
+        float t = std::min(elapsed / durationSec, 1.0f);
+
+        const vec3 interpLookFrom = glm::mix(lookFromStart, lookFromEnd, t);
+        const vec3 interpLookTo = glm::mix(lookToStart, lookToEnd, t);
+
+        camera_->setLookFrom(interpLookFrom);
+        camera_->setLookTo(interpLookTo);
+
+        if (t >= 1.0f) {
+            timer->stop();
+            timer->deleteLater();
+
+            if (nextAnim) {
+                controller_->setAnimation(*nextAnim);
+                controller_->eval(controller_->getCurrentTime(), tNextBeg);
+                pendingNextId_ = nextId;
+            }
+        }
+    });
+
+    timer->start();
+}
 
 
 void PresentationViewPanel::captureVisibleCanvasImages(QListWidgetItem* it) {

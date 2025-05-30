@@ -85,7 +85,7 @@ private:
     void decreaseScriptFont();
     void createTransition();
     void buildRuntimeTransition();
-
+    void buildRuntimeCameraTransition();
 
     /* ------------------------------------------------------------------ */
     static constexpr int StartId{-1};       ///< ”START”-boxen i tidslinjen
