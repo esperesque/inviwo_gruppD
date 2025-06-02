@@ -87,6 +87,9 @@ private:
     void buildRuntimeTransition();
     void buildRuntimeCameraTransition();
 
+    private slots:
+    void importNotes();
+
     /* ------------------------------------------------------------------ */
     static constexpr int StartId{-1};       ///< ”START”-boxen i tidslinjen
     static constexpr int IdleRotateId{-2};  ///< genererad av   btnRotate_
@@ -116,6 +119,9 @@ private:
     bool autoRotateActive = false; // If active, enables idle rotate when an animation finishes
     bool idleZoomActive_ = false;
     bool idleShakeActive_ = false;
+
+
+
     /* ---------- UI-element ---------- */
     // toolbar-knappar
     QToolButton *tbBreak_, *tbAutoplay_, *tbExit_, *tbFullscreen_, *tbRestart_, *tbDelete_,
@@ -132,10 +138,10 @@ private:
         QToolButton *btnRotate_,
         *btnZoom_, *btnShake_;
     // --- font‐kontroller för scriptEdit_ ---
-        QToolButton *btnFontDecrease_,
-        *btnFontIncrease_;
+        QToolButton *btnFontDecrease_, *btnFontIncrease_;
+        QPushButton* btnImport_;
         QLabel* scriptFontSizeLabel_{nullptr};
-    int scriptFontSize_{16};  ///< startstorlek i pt
+        int scriptFontSize_{16};  
 
     QSlider* speedSlider_{nullptr};
     QLabel* speedLabel_{nullptr};

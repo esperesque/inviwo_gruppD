@@ -16,6 +16,10 @@
 #include <QFont>
 #include <QLabel>
 #include <Qt>
+#include <QFileDialog>
+#include <QFile>
+#include <QTextStream>
+#include <QMessageBox>
 #include <glm/gtc/matrix_transform.hpp>
 #include <random>
 #include <memory>
@@ -210,10 +214,16 @@ void PresentationViewPanel::setupUI() {
     connect(btnFontIncrease_, &QToolButton::clicked, this,
             &PresentationViewPanel::increaseScriptFont);
 
+    //knapp: Importera anteckningar
+    btnImport_ = new QPushButton("Import .txt");
+    btnImport_->setToolTip("Importera anteckningar (.txt)");
+    connect(btnImport_, &QPushButton::clicked, this, &PresentationViewPanel::importNotes);
+
     // Bygg raden
     fontCtrlLay->addWidget(btnFontDecrease_);
     fontCtrlLay->addWidget(scriptFontSizeLabel_);
     fontCtrlLay->addWidget(btnFontIncrease_);
+    fontCtrlLay->addWidget(btnImport_);
     fontCtrlLay->addStretch(1);
     notesLayout->addLayout(fontCtrlLay);
 
@@ -827,6 +837,31 @@ void PresentationViewPanel::decreaseScriptFont() {
     scriptEdit_->setFont(f);
     // NY RAD:
     scriptFontSizeLabel_->setText(QString::number(scriptFontSize_));
+}
+
+
+void PresentationViewPanel::importNotes() {
+    //  Öppna fil-dialog för att välja .txt
+    const QString fileName =
+        QFileDialog::getOpenFileName(this, tr("Importera anteckningar"), QDir::homePath(),
+                                     tr("Textfiler (*.txt);;Alla filer (*)"));
+    if (fileName.isEmpty()) return;  // ingen fil vald, avbryt
+
+    //  Försök öppna vald fil
+    QFile file(fileName);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        QMessageBox::warning(this, tr("Fel vid filöppning"),
+                             tr("Kunde inte öppna filen:\n%1").arg(file.errorString()));
+        return;
+    }
+
+    // Läs in hela innehållet
+    QTextStream in(&file);
+    QString content = in.readAll();
+    file.close();
+
+    // Placera texten i anteckningsrutan
+    scriptEdit_->setPlainText(content);
 }
 
 
