@@ -259,6 +259,8 @@
         <file>icons/zoom-animation.svg</file>
         <file>icons/shakey-animation.svg</file>
         <file>icons/transition-square.svg</file>
+        <file>icons/transition-animate.svg</file>
+        <file>icons/autorotate.svg</file>
 
 
     </qresource>

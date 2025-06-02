@@ -120,14 +120,14 @@ void PresentationViewPanel::setupUI() {
     // transition-knapp
     tbTransition_ = makeTool("", &PresentationViewPanel::createTransition);
     tbTransition_->setIcon(
-        QIcon(":/animation/icons/transition-square.svg"));  // lägg SVG i resurser
+        QIcon(":/animation/icons/transition-animate.svg"));  // lägg SVG i resurser
     tbTransition_->setIconSize(QSize(24, 24));
     tbTransition_->setToolButtonStyle(Qt::ToolButtonIconOnly);
     tbTransition_->setToolTip("Insert transition (cross-fade)");
 
     // auto-rotate on/off
     tbAutoRotate_ = makeTool("", &PresentationViewPanel::toggleAutoRotate);
-    tbAutoRotate_->setIcon(QIcon(":/animation/icons/arrow_direction_refresh_repeat_restart_icon_128.svg"));
+    tbAutoRotate_->setIcon(QIcon(":/animation/icons/autorotate.svg"));
     tbAutoRotate_->setIconSize(QSize(24, 24));
     tbAutoRotate_->setToolButtonStyle(Qt::ToolButtonIconOnly);
     tbAutoRotate_->setToolTip("Enable auto-rotate");
