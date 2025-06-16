@@ -86,9 +86,25 @@ private:
     void createTransition();
     void buildRuntimeTransition();
     void buildRuntimeCameraTransition();
+    void onPlayBakedClicked();  // slot
+
 
     private slots:
     void importNotes();
+
+    void bakePresentation();  // render-knappen anropar den
+    void onRenderClicked();   // slot
+
+    // Hjälper till att kopiera eller generera keyframes
+    void appendAnimation(animation::Animation& src, animation::Seconds off,
+                         animation::Animation& dst);
+    void addIdleRotate(Animation& dst, Seconds offset);
+    void addIdleZoom(Animation& dst, Seconds offset);
+    void addIdleShake(Animation& dst, Seconds offset);
+    void addCrossfade(Animation& prev, Animation& next, Seconds offset, Seconds dur,
+                      Animation& dst);
+    void markDirty();  // sätter needsRebake_ och aktiverar Render-knappen
+  
 
     /* ------------------------------------------------------------------ */
     static constexpr int StartId{-1};       ///< ”START”-boxen i tidslinjen
@@ -120,6 +136,20 @@ private:
     bool idleZoomActive_ = false;
     bool idleShakeActive_ = false;
 
+    QToolButton* tbRender_{nullptr};  // själva knappen
+    Animation* bakedAnim_{nullptr};   // pekar på __pv_baked__
+    bool needsRebake_{true};          // tidslinjen ändrad?
+    QToolButton* tbPlayBaked_{nullptr};
+    bool bakedReady_{false};  // true när __pv_baked__ speglar tidslinjen
+    Seconds bakedSegmentEnd_{0};
+    bool bakedSegmentPlaying_{false};
+
+              // ny knapp
+
+    QLabel* statusLabel_{nullptr};                 // texten “✔ Rendered!”
+                           // true när __pv_baked__ är giltig
+    std::vector<animation::Seconds> bakedOffset_;  // t0 för varje ruta
+    int currentBakedRow_{0};                       // index i bakedOffset_
 
 
     /* ---------- UI-element ---------- */

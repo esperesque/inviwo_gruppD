@@ -90,6 +90,20 @@ void PresentationViewPanel::setupUI() {
     tbBreak_->setToolButtonStyle(Qt::ToolButtonIconOnly);
     tbBreak_->setToolTip("Pause");
 
+tbPlayBaked_ = makeTool("", &PresentationViewPanel::onPlayBakedClicked);
+    tbPlayBaked_->setIcon(QIcon(":/animation/icons/play-baked.svg"));  // lägg svg i .qrc
+    tbPlayBaked_->setIconSize(QSize(24, 24));
+    tbPlayBaked_->setToolButtonStyle(Qt::ToolButtonIconOnly);
+    tbPlayBaked_->setToolTip("Play baked presentation");
+    tbPlayBaked_->setEnabled(false);  // avstängd tills något är bakat
+
+    // status-text
+    statusLabel_ = new QLabel;
+    statusLabel_->setMinimumWidth(90);  // så texten får plats
+    statusLabel_->setAlignment(Qt::AlignCenter);
+    barLayout->addWidget(statusLabel_);
+
+
     // autoplay
     tbAutoplay_ = makeTool("", &PresentationViewPanel::onToolbarClicked);
     tbAutoplay_->setIcon(
@@ -157,6 +171,12 @@ void PresentationViewPanel::setupUI() {
     // Lägg till i toolbar-layouten
     barLayout->addWidget(tbExit_);
 
+    // render/bake
+    tbRender_ = makeTool("", &PresentationViewPanel::onRenderClicked);
+    tbRender_->setIcon(QIcon(":/animation/icons/render.svg"));  // skapa/lägg till valfri svg
+    tbRender_->setIconSize(QSize(24, 24));
+    tbRender_->setToolButtonStyle(Qt::ToolButtonIconOnly);
+    tbRender_->setToolTip("Render (bake) presentation");
 
     barLayout->addStretch(1);
 
@@ -181,6 +201,10 @@ void PresentationViewPanel::setupUI() {
             &PresentationViewPanel::onTimelineDoubleClicked);
 
     ensureStartItem();
+    auto* m = timeline_->model();
+    connect(m, &QAbstractItemModel::rowsMoved, this, &PresentationViewPanel::markDirty);
+    connect(m, &QAbstractItemModel::rowsInserted, this, &PresentationViewPanel::markDirty);
+    connect(m, &QAbstractItemModel::rowsRemoved, this, &PresentationViewPanel::markDirty);
 
 
 /* ---------- Script / Presets / View-controls ---------- */
@@ -383,6 +407,9 @@ void PresentationViewPanel::setupUI() {
     /* ---------- Tid-etikett ---------- */
     timeLabel_ = new QLabel("Current Time: 0.00 s");
 
+    tbRender_->setEnabled(false);  // <--  LÄGG TILL: Render avstängd vid start
+
+
     /* ---------- Huvudlayout ---------- */
     auto* main = new QVBoxLayout(this);
     main->addLayout(barLayout);
@@ -503,6 +530,7 @@ void PresentationViewPanel::onLibraryButtonClicked(int id) {
     updateTimelineHighlight();
     QTimer::singleShot(100, this, [this, it]() { captureVisibleCanvasImages(it); });
     timeline_->setCurrentItem(it);
+    markDirty();
 }
 
 void PresentationViewPanel::onTimelineDoubleClicked(QListWidgetItem* item) {
@@ -563,6 +591,35 @@ void PresentationViewPanel::playAnimationById(int id) {
 
 
 void PresentationViewPanel::jumpRelative(int d) {
+    if (bakedReady_ && !bakedOffset_.empty()) {
+
+        // 1) ny rad i den bakade tidslinjen
+        currentBakedRow_ =
+            std::clamp(currentBakedRow_ + d, 1, static_cast<int>(bakedOffset_.size() - 1));
+
+        // 2) start- och sluttid för aktuellt segment
+        Seconds tStart = bakedOffset_[currentBakedRow_];
+        Seconds tEnd = (currentBakedRow_ + 1 < bakedOffset_.size())
+                           ? bakedOffset_[currentBakedRow_ + 1]
+                           : bakedAnim_->getLastTime();
+
+        // 3) sätt animation + hoppa till start
+        controller_->setAnimation(*bakedAnim_);
+        controller_->playModeLocal.set(true);
+        controller_->playMode.set(animation::PlaybackMode::Once);
+        controller_->eval(controller_->getCurrentTime(), tStart);
+
+        // 4) starta uppspelning och spara när vi ska stanna
+        bakedSegmentEnd_ = tEnd;
+        bakedSegmentPlaying_ = true;
+        controller_->play();
+
+        // 5) GUI-markering
+        timeline_->setCurrentRow(currentBakedRow_);
+        updateTimelineHighlight();
+        return;
+    }
+
     if (timeline_->count() == 0) return;
     int r = timeline_->currentRow();
     do {
@@ -578,13 +635,27 @@ void PresentationViewPanel::deleteCurrentBox() {
     if (!timeline_->currentItem() || timeline_->currentRow() == 0) return;  // skydda START
     delete timeline_->takeItem(timeline_->currentRow());
     ensureStartItem();
+    markDirty();
 }
 
 /* ---------- 🧹 Rensa alla animations-boxar ---------- */
 void PresentationViewPanel::clearTimelineBoxes() {
     while (timeline_->count() > 1) delete timeline_->takeItem(1);
     ensureStartItem();
+    markDirty();
 }
+void PresentationViewPanel::onPlayBakedClicked() {
+    if (!bakedReady_ || !controller_ || !bakedAnim_) return;
+    if (bakedOffset_.size() < 2) return;  // inget att spela
+
+    currentBakedRow_ = 1;  // första rutan efter START
+    controller_->setAnimation(*bakedAnim_);
+    controller_->eval(controller_->getCurrentTime(), bakedOffset_[currentBakedRow_]);
+    controller_->pause();  // vänta på användar-klick
+    timeline_->setCurrentRow(currentBakedRow_);
+    updateTimelineHighlight();
+}
+
 
 /* ---------- ↺ Reset allt ---------- */
 void PresentationViewPanel::restartPresentation() {  
@@ -882,6 +953,7 @@ void PresentationViewPanel::createTransition() {
     timeline_->insertItem(row + 1, box);
     timeline_->setCurrentItem(box);
     updateTimelineHighlight();
+    markDirty();
 }
 
 /***** (B)  spelas när ↔-rutan ska köras *****/
@@ -960,6 +1032,90 @@ void PresentationViewPanel::buildRuntimeTransition() {
     controller_->play();
     pendingNextId_ = nextAnim ? nextId : -1;
 }
+void PresentationViewPanel::onRenderClicked() {
+    bakePresentation();
+  
+}
+
+/* ------------------------------------------------------------------------- */
+void PresentationViewPanel::bakePresentation() {
+    if (!controller_) return;
+
+    /* Skapa (eller återanvänd) den bakade animationen */
+    if (!bakedAnim_) {
+        bakedAnim_ = &workspaceAnimations_.add("__pv_baked__");
+    }
+    bakedAnim_->clear();
+
+    Seconds tOff{0};                // löpande tids-offset
+    Animation* prevAnim = nullptr;  // för crossfades
+    bakedOffset_.clear();
+    bakedOffset_.push_back(Seconds{0});  // START-rutan
+
+    /* hoppa START-rutan (index 0) */
+    for (int row = 1; row < timeline_->count(); ++row) {
+        const int id = timeline_->item(row)->data(Qt::UserRole).toInt();
+
+        if (id >= 0) {  // *** före ***
+            bakedOffset_.push_back(tOff);
+            auto& src = workspaceAnimations_.get(id);
+            appendAnimation(src, tOff, *bakedAnim_);
+            tOff += src.getLastTime();
+            prevAnim = &src;
+        } else if (id == IdleRotateId) {
+            bakedOffset_.push_back(tOff);
+            addIdleRotate(*bakedAnim_, tOff);
+            tOff += Seconds{8};
+            prevAnim = nullptr;  // idle avslutar kedjan
+        } else if (id == IdleZoomId) {
+            bakedOffset_.push_back(tOff);
+            addIdleZoom(*bakedAnim_, tOff);
+            tOff += Seconds{3};
+            prevAnim = nullptr;
+        } else if (id == IdleShakeId) {
+            bakedOffset_.push_back(tOff);
+            addIdleShake(*bakedAnim_, tOff);
+            tOff += Seconds{4};
+            prevAnim = nullptr;
+        } else if (id == TransitionDummyId && prevAnim) {  // crossfade
+            /* leta nästa riktiga animation */
+            Animation* nextAnim = nullptr;
+            for (int r = row + 1; r < timeline_->count(); ++r) {
+                int nx = timeline_->item(r)->data(Qt::UserRole).toInt();
+                if (nx >= 0) {
+                    nextAnim = &workspaceAnimations_.get(nx);
+                    break;
+                }
+            }
+            if (nextAnim) {
+                Seconds dur{transitionDuration_};
+                bakedOffset_.push_back(tOff);
+                addCrossfade(*prevAnim, *nextAnim, tOff, dur, *bakedAnim_);
+                tOff += dur;
+                prevAnim = nextAnim;
+            }
+            
+
+        }
+    }
+
+   
+   needsRebake_ = false;
+
+    const bool hasContent = bakedOffset_.size() > 1;
+    bakedReady_ = hasContent;
+
+    tbRender_->setEnabled(false);
+    tbPlayBaked_->setEnabled(hasContent);
+
+    if (statusLabel_) {
+        statusLabel_->setText(hasContent ? "✔ Rendered!" : "Rendered (empty)");
+        statusLabel_->setStyleSheet(hasContent ? "color:#4caf50" : "color:#f0ad4e");
+    }
+
+
+
+}
 
 
 void PresentationViewPanel::buildRuntimeCameraTransition() {
@@ -1020,6 +1176,8 @@ void PresentationViewPanel::buildRuntimeCameraTransition() {
 
         camera_->setLookFrom(interpLookFrom);
         camera_->setLookTo(interpLookTo);
+        camera_->propertyModified();  // ⇦ tvingar redraw
+
 
         if (t >= 1.0f) {
             timer->stop();
@@ -1158,6 +1316,144 @@ void PresentationViewPanel::stopIdleShake() {
 void PresentationViewPanel::setController(AnimationController* c) { controller_ = c; }
 
 void PresentationViewPanel::setCamera(CameraProperty* cam) { camera_ = cam; }
+
+
+// -------------------------------------------------------------------------
+//  Kopiera alla keyframes från 'src' till 'dst' med tidsförskjutningen off.
+//  – för varje tidpunkt i src utvärderar vi animationen och sparar värdet
+//    för samtliga property-tracks i dst.
+// -------------------------------------------------------------------------
+void PresentationViewPanel::appendAnimation(animation::Animation& src, animation::Seconds off,
+                                            animation::Animation& dst) {
+    using namespace animation;
+    if (!controller_) return;
+
+    /* 1) samla unika property-pekare i käll-animationen */
+    std::vector<Property*> props;
+    for (Track& trk : src)
+        if (auto* p = getTrackProperty(&trk)) props.push_back(p);
+    std::sort(props.begin(), props.end());
+    props.erase(std::unique(props.begin(), props.end()), props.end());
+
+    const bool isIdle = src.getName().rfind("Idle ", 0) == 0;
+
+    controller_->setAnimation(src);
+
+    if (isIdle) {
+        /* ---- Idle-block: ta alla keyframes ---- */
+        std::vector<Seconds> times = src.getAllTimes();
+        times.erase(std::unique(times.begin(), times.end()), times.end());
+
+        for (Seconds t : times) {
+            controller_->eval(Seconds{0}, t);
+            for (Property* p : props) dst.addKeyframe(p, off + t);
+        }
+    } else {
+        /* ---- Vanlig slide: ta bara sista bilden ---- */
+        Seconds tEnd = src.getLastTime();
+        controller_->eval(Seconds{0}, tEnd);
+        for (Property* p : props) dst.addKeyframe(p, off /*ingen tidsgång*/);
+    }
+}
+
+
+
+
+
+
+
+
+
+/* ------- idle-segment (förenklade varianter av add*Preset) ------- */
+void PresentationViewPanel::addIdleRotate(Animation& dst, Seconds off) {
+    if (!camera_) return;
+    const Seconds dt{2};
+    const int steps = 4;
+    const float dA = glm::radians(90.f);
+
+
+    auto fromStart = camera_->getLookFrom();
+    camera_->setLookFrom(fromStart);  // keyframe 0
+    dst.addKeyframe(camera_, off);
+
+    for (int i = 1; i <= steps; ++i) {  // +90° för varje steg
+        rotateCameraBy(dA);
+        dst.addKeyframe(camera_, off + dt * i);
+    }
+    camera_->setLookFrom(fromStart);  // återställ
+}
+
+void PresentationViewPanel::addIdleZoom(Animation& dst, Seconds off) {
+    if (!camera_) return;
+    Seconds t0{0}, t1{1.5}, t2{3};
+    glm::vec3 from0 = camera_->getLookFrom(), to = camera_->getLookTo();
+    glm::vec3 dir = glm::normalize(to - from0);
+
+    camera_->setLookFrom(from0);
+    dst.addKeyframe(camera_, off + t0);
+
+    camera_->setLookFrom(from0 + dir * 0.30f);
+    dst.addKeyframe(camera_, off + t1);
+
+    camera_->setLookFrom(from0);
+    dst.addKeyframe(camera_, off + t2);
+}
+
+void PresentationViewPanel::addIdleShake(Animation& dst, Seconds off) {
+    if (!camera_) return;
+    const Seconds dt{0.4};
+    const int n = 10;
+    glm::vec3 startPos = camera_->getLookFrom();
+
+    for (int i = 0; i <= n; ++i) {
+        float f = (i % 2 == 0 ? 1.f : -1.f);
+        camera_->setLookFrom(startPos + glm::vec3{f * 0.05f, 0, f * 0.05f});
+        dst.addKeyframe(camera_, off + dt * i);
+    }
+    camera_->setLookFrom(startPos);
+}
+
+void PresentationViewPanel::markDirty() {
+    needsRebake_ = true;
+    bakedReady_ = false;
+
+    if (tbRender_) tbRender_->setEnabled(true);
+    if (tbPlayBaked_) tbPlayBaked_->setEnabled(false);
+    if (statusLabel_) statusLabel_->clear();
+}
+
+
+
+
+/* -------- enkel egenskaps-crossfade (variant av buildRuntimeTransition) -------- */
+void PresentationViewPanel::addCrossfade(Animation& prev, Animation& next, Seconds off, Seconds dur,
+                                         Animation& dst) {
+    if (!controller_) return;
+
+    const Seconds tPrevEnd = prev.getLastTime();
+    const Seconds tNextBeg = next.getFirstTime();
+
+    /* säkra lista över alla Property* som förekommer */
+    std::vector<Property*> props;
+    auto collect = [&](Animation& a) {
+        for (auto& trk : a)
+            if (auto* p = getTrackProperty(&trk)) props.push_back(p);
+    };
+    collect(prev);
+    collect(next);
+    std::sort(props.begin(), props.end());
+    props.erase(std::unique(props.begin(), props.end()), props.end());
+
+    for (Property* p : props) {
+        controller_->setAnimation(prev);
+        controller_->eval(Seconds{0}, tPrevEnd);
+        dst.addKeyframe(p, off);  // start
+
+        controller_->setAnimation(next);
+        controller_->eval(Seconds{0}, tNextBeg);
+        dst.addKeyframe(p, off + dur);  // slut
+    }
+}
 
 
 }  // namespace animation
